@@ -38,6 +38,9 @@ export interface VirtualImageMasonryProps {
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
   layoutKey?: string | number;
+  selectable?: boolean;
+  selectedIds?: Set<string>;
+  onToggleSelect?: (id: string) => void;
 }
 
 interface VirtualImageMasonryInnerProps extends Omit<VirtualImageMasonryProps, 'layoutKey'> {
@@ -56,6 +59,9 @@ function VirtualImageMasonryInner({
   lanes,
   columnWidth,
   scrollMargin,
+  selectable = false,
+  selectedIds,
+  onToggleSelect,
 }: VirtualImageMasonryInnerProps) {
   const lastFetchTriggerIndexRef = useRef(-1);
 
@@ -132,6 +138,9 @@ function VirtualImageMasonryInner({
               onClick={onImageClick}
               onDelete={onDelete}
               displayWidth={columnWidth}
+              selectable={selectable}
+              selected={selectedIds?.has(image.id)}
+              onToggleSelect={onToggleSelect}
             />
           </div>
         );
@@ -148,6 +157,9 @@ export default function VirtualImageMasonry({
   isFetchingNextPage,
   fetchNextPage,
   layoutKey,
+  selectable = false,
+  selectedIds,
+  onToggleSelect,
 }: VirtualImageMasonryProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -203,6 +215,9 @@ export default function VirtualImageMasonry({
           lanes={lanes}
           columnWidth={columnWidth}
           scrollMargin={scrollMargin}
+          selectable={selectable}
+          selectedIds={selectedIds}
+          onToggleSelect={onToggleSelect}
         />
       ) : null}
     </div>

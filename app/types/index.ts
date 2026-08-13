@@ -59,6 +59,9 @@ export interface ImageFilterState {
   format: string;
   orientation: string;
   tag: string;
+  search: string;
+  sort: "upload_time" | "name" | "size";
+  order: "asc" | "desc";
 }
 
 // 组件 Props 类型
@@ -72,12 +75,6 @@ export interface ImageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDelete: (id: string) => Promise<void>;
-}
-
-export interface ApiKeyModalProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onSuccess: (apiKey: string) => void;
 }
 
 export interface ImageFiltersProps {
@@ -123,4 +120,45 @@ export interface ConfigSettings {
   maxFileSize: number;
   supportedFormats: string[];
   imageQuality: number;
+}
+
+
+// 后台管理相关类型
+export interface CompressionConfig {
+  quality: number;
+  maxWidth: number;
+  maxHeight: number;
+  preserveAnimation: boolean;
+  generateWebp: boolean;
+  generateAvif: boolean;
+}
+
+export interface AdminConfig {
+  maxUploadCount: number;
+  maxFileSize: number;
+  supportedFormats: string[];
+  imageQuality: number;
+  compression: CompressionConfig;
+}
+
+export interface AdminStats {
+  totalImages: number;
+  totalStorageBytes: number;
+  expiredImages: number;
+  formatDistribution: Array<{ format: string; count: number }>;
+  orientationDistribution: Array<{ orientation: string; count: number }>;
+  topTags: Array<{ name: string; count: number }>;
+  dailyTrend: Array<{ date: string; count: number }>;
+  recentUploads: ImageFile[];
+}
+
+export interface SessionStatus {
+  authenticated: boolean;
+  needsSetup: boolean;
+}
+
+export interface UpdateImageData {
+  tags?: string[];
+  expiryMinutes?: number;
+  originalName?: string;
 }

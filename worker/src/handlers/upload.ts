@@ -4,7 +4,8 @@ import { StorageService } from '../services/storage';
 import { MetadataService } from '../services/metadata';
 import { CacheService } from '../services/cache';
 import { ImageProcessor } from '../services/imageProcessor';
-import { CompressionService, parseCompressionOptions } from '../services/compression';
+import { CompressionService } from '../services/compression';
+import { getEffectiveConfig } from './system';
 import { successResponse, errorResponse } from '../utils/response';
 import { generateImageId, parseTags, parseNumber } from '../utils/validation';
 import { buildImageUrls } from '../utils/imageTransform';
@@ -41,7 +42,9 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
     const file = (formData.get('image') ?? formData.get('file')) as File | null;
     const tagsString = formData.get('tags') as string | null;
     const expiryMinutes = parseNumber(formData.get('expiryMinutes') as string | null, 0);
-    const compressionOptions = parseCompressionOptions(formData);
+    // Global compression settings from admin config (no per-upload overrides)
+    const config = await getEffectiveConfig(c.env.DB);
+    const compressionOptions = config.compression;
 
     if (!file || typeof file === 'string') {
       return errorResponse('No file provided');

@@ -42,10 +42,11 @@ export interface ZipUploadActions {
   startUpload: (options: {
     tags: string[]
     expiryMinutes: number
-    quality: number
-    maxWidth: number
-    preserveAnimation: boolean
-    outputFormat: 'webp' | 'avif' | 'both'
+    concurrency?: number
+    quality?: number
+    maxWidth?: number
+    preserveAnimation?: boolean
+    outputFormat?: 'webp' | 'avif' | 'both'
     onCompleted?: (results: UploadResult[]) => void
   }) => Promise<void>
   cancel: () => void
@@ -121,10 +122,11 @@ export function useZipUpload(): ZipUploadState & ZipUploadActions {
     async (options: {
       tags: string[]
       expiryMinutes: number
-      quality: number
-      maxWidth: number
-      preserveAnimation: boolean
-      outputFormat: 'webp' | 'avif' | 'both'
+      concurrency?: number
+      quality?: number
+      maxWidth?: number
+      preserveAnimation?: boolean
+      outputFormat?: 'webp' | 'avif' | 'both'
       onCompleted?: (results: UploadResult[]) => void
     }) => {
       const { zipFile, analysis } = state
@@ -172,7 +174,7 @@ export function useZipUpload(): ZipUploadState & ZipUploadActions {
           // 并发上传当前批次
           const results = await concurrentUpload({
             files: batch.map((img) => ({ id: img.id, file: img.file })),
-            concurrency: 5,
+            concurrency: options.concurrency ?? 5,
             tags: options.tags,
             expiryMinutes: options.expiryMinutes,
             quality: options.quality,

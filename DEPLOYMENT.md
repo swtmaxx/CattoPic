@@ -178,26 +178,18 @@ Deployed cattopic-worker triggers
   https://cattopic-worker.<your-subdomain>.workers.dev
 ```
 
-### 2.2 添加 API Key
+### 2.2 初始化管理员账号（网页）
 
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('your-api-key-here', datetime('now'));
-"
-```
-
-> 建议使用强随机字符串作为 API Key，例如：`openssl rand -hex 32`
+前端部署完成后，首次打开 `/admin/setup` 页面，在网页中创建管理员账号（用户名 + 密码，PBKDF2 哈希存储于 D1 `admin_users` 表）。之后通过 `/admin/login` 登录后台。
 
 ### 2.3 验证部署
 
 ```bash
-# 测试认证
-curl -X POST \
-  -H "Authorization: Bearer your-api-key-here" \
-  https://cattopic-worker.<your-subdomain>.workers.dev/api/validate-api-key
+# 检查会话/初始化状态（公开接口）
+curl https://cattopic-worker.<your-subdomain>.workers.dev/api/auth/session
 
-# 预期返回
-{"success":true,"data":{"valid":true}}
+# 预期返回（未初始化）
+{"success":true,"data":{"needsSetup":true,"authenticated":false}}
 ```
 
 ---
@@ -251,7 +243,7 @@ pnpm wrangler deploy
 
 ## 五、升级已有部署
 
-已有部署应继续使用原来的 D1 数据库，`api_keys` 表中的 API Key 不需要迁移或轮换。`schema.sql` 只用于新安装；升级时不要重新初始化数据库。
+已有部署应继续使用原来的 D1 数据库，不需要迁移或轮换数据。`schema.sql` 只用于新安装；升级时不要重新初始化数据库。新版改为用户名/密码登录（`admin_users` 表 + KV 会话），旧 `api_keys` 表保留但不再使用。
 
 本版本新增 `deletion_jobs` 表用于可靠重试 R2 删除任务。该表由 Worker 在运行时通过 D1 binding 懒创建，因此 fork 用户和本地部署用户都不需要手动执行 D1 迁移命令。
 
@@ -273,7 +265,7 @@ corepack pnpm -C worker exec tsc --noEmit
 corepack pnpm -C worker wrangler deploy
 ```
 
-API Key 仍只从 D1 `api_keys` 表校验，不要配置成 Worker Secret。
+后台登录使用 D1 `admin_users` 表（PBKDF2 哈希）校验，会话存于 KV，不要配置成 Worker Secret。
 
 ---
 
@@ -308,19 +300,18 @@ NEXT_PUBLIC_API_URL=http://localhost:8787
 
 ### 认证方式
 
-受保护的 API 需要在请求头中添加：
-
-```
-Authorization: Bearer <your-api-key>
-```
+受保护的 API 依赖登录会话：先通过 `/api/auth/login` 登录（HttpOnly Cookie），浏览器请求会自动携带 Cookie。未登录访问受保护接口返回 401。
 
 ### API 端点
 
 | 方法 | 路径 | 认证 | 说明 |
 |------|------|------|------|
-| GET | `/api/random` | ❌ | 随机获取图片 |
+| GET | `/api/random` | ❌ | 随机获取图片（公开） |
 | GET | `/r2/*` | ❌ | 访问图片文件 |
-| POST | `/api/validate-api-key` | ✅ | 验证 API Key |
+| GET | `/api/auth/session` | ❌ | 会话状态（公开） |
+| POST | `/api/auth/setup` | ❌ | 初始化管理员（仅首次） |
+| POST | `/api/auth/login` | ❌ | 登录 |
+| POST | `/api/auth/logout` | ❌ | 登出 |
 | POST | `/api/upload/single` | ✅ | 上传图片 |
 | GET | `/api/images` | ✅ | 获取图片列表 |
 | GET | `/api/images/:id` | ✅ | 获取图片详情 |
@@ -340,27 +331,16 @@ Authorization: Bearer <your-api-key>
 
 ### Q1: 401 Unauthorized 错误
 
-检查 API Key 是否已添加到数据库：
+确认已登录：访问 `/admin/login` 用管理员账号登录。若提示"请先初始化管理员"，请先访问 `/admin/setup` 创建账号（或执行 `SELECT * FROM admin_users;` 检查）。
 
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "SELECT * FROM api_keys;"
-```
-
-### Q2: 如何添加新的 API Key
+### Q2: 如何重置管理员密码
 
 ```bash
 pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('new-api-key', datetime('now'));
+DELETE FROM admin_users;
 "
 ```
-
-### Q3: 如何删除 API Key
-
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-DELETE FROM api_keys WHERE key = 'old-api-key';
-"
-```
+删除后重新访问 `/admin/setup` 创建新账号即可。
 
 ### Q4: 如何查看所有资源 ID
 

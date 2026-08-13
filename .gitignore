@@ -6,3 +6,5 @@ node_modules/
 
 # Worker configuration (contains sensitive IDs)
 worker/wrangler.toml
+# preview logs.preview-logs/
+

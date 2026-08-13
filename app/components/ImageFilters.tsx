@@ -1,23 +1,48 @@
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
-import { ImageFiltersProps } from "../types";
-import { motion, AnimatePresence } from 'motion/react';
-import { api } from "../utils/request";
-import { ChevronDownIcon, MagnifyingGlassIcon, MixerHorizontalIcon } from "./ui/icons";
+"use client";
 
-export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import { api } from "../utils/request";
+import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, MixerHorizontalIcon, ArrowDownIcon } from "./ui/icons";
+
+export interface ImageFilterValues {
+  format: string;
+  orientation: string;
+  tag: string;
+  search: string;
+  sort: "upload_time" | "name" | "size";
+  order: "asc" | "desc";
+}
+
+interface ImageFiltersProps {
+  onFilterChange: (filters: ImageFilterValues) => void;
+  search?: string;
+  onSearchChange?: (search: string) => void;
+}
+
+const SORT_OPTIONS = [
+  { value: "upload_time", label: "上传时间" },
+  { value: "name", label: "文件名" },
+  { value: "size", label: "大小" },
+];
+
+export default function ImageFilters({ onFilterChange, search = "", onSearchChange }: ImageFiltersProps) {
   const [format, setFormat] = useState("all");
   const [orientation, setOrientation] = useState("all");
   const [tag, setTag] = useState("");
+  const [sort, setSort] = useState<"upload_time" | "name" | "size">("upload_time");
+  const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [tagSearchQuery, setTagSearchQuery] = useState("");
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
-  
-  const [activeDropdown, setActiveDropdown] = useState<"format" | "orientation" | "tag" | null>(null);
+
+  const [activeDropdown, setActiveDropdown] = useState<"format" | "orientation" | "tag" | "sort" | null>(null);
 
   const dropdownRefs = {
     format: useRef<HTMLDivElement>(null),
     orientation: useRef<HTMLDivElement>(null),
-    tag: useRef<HTMLDivElement>(null)
+    tag: useRef<HTMLDivElement>(null),
+    sort: useRef<HTMLDivElement>(null),
   };
 
   const panelRef = useRef<HTMLDivElement>(null);
@@ -33,7 +58,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
   const orientationOptions = useMemo(() => [
     { value: "all", label: "方向" },
     { value: "landscape", label: "横向" },
-    { value: "portrait", label: "纵向" }
+    { value: "portrait", label: "纵向" },
   ], []);
 
   useEffect(() => {
@@ -41,7 +66,7 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
       try {
         const response = await api.get<{ success: boolean; tags: { name: string; count: number }[] }>("/api/tags");
         if (response.success && response.tags && response.tags.length > 0) {
-          setAvailableTags(response.tags.map(t => t.name));
+          setAvailableTags(response.tags.map((t) => t.name));
         }
       } catch (error) {
         console.error("获取标签失败:", error);
@@ -50,65 +75,79 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
     fetchTags();
   }, []);
 
+  const emit = useCallback((next: Partial<ImageFilterValues>) => {
+    onFilterChange({
+      format, orientation, tag, search, sort, order,
+      ...next,
+    });
+  }, [format, orientation, tag, search, sort, order, onFilterChange]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (
-        panelRef.current && 
+        panelRef.current &&
         !panelRef.current.contains(event.target as Node) &&
-        !(event.target as Element).closest('.filter-toggle-button')
+        !(event.target as Element).closest(".filter-toggle-button")
       ) {
         setIsFilterPanelOpen(false);
         setActiveDropdown(null);
       }
-      
-      if (!Object.values(dropdownRefs).some(ref => 
-        ref.current && ref.current.contains(event.target as Node)
-      )) {
+
+      if (!Object.values(dropdownRefs).some((ref) => ref.current && ref.current.contains(event.target as Node))) {
         setActiveDropdown(null);
       }
     };
 
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const handleFilterChange = useCallback((type: string, value: string) => {
     switch (type) {
       case "format":
         setFormat(value);
-        onFilterChange(value, orientation, tag);
+        emit({ format: value });
         break;
       case "orientation":
         setOrientation(value);
-        onFilterChange(format, value, tag);
+        emit({ orientation: value });
         break;
       case "tag":
         setTag(value);
-        onFilterChange(format, orientation, value);
+        emit({ tag: value });
+        break;
+      case "sort":
+        setSort(value as "upload_time" | "name" | "size");
+        emit({ sort: value as "upload_time" | "name" | "size" });
         break;
     }
     setActiveDropdown(null);
-  }, [format, orientation, tag, onFilterChange]);
+  }, [emit]);
 
-  const filteredTags = useMemo(() => 
-    searchQuery.trim() === ""
+  const handleToggleOrder = () => {
+    const next = order === "desc" ? "asc" : "desc";
+    setOrder(next);
+    emit({ order: next });
+  };
+
+  const filteredTags = useMemo(() =>
+    tagSearchQuery.trim() === ""
       ? availableTags
-      : availableTags.filter(t => 
-          t.toLowerCase().includes(searchQuery.toLowerCase())
-        ),
-    [availableTags, searchQuery]
+      : availableTags.filter((t) => t.toLowerCase().includes(tagSearchQuery.toLowerCase())),
+    [availableTags, tagSearchQuery]
   );
 
-  const renderFilterOption = useCallback((type: "format" | "orientation" | "tag") => {
+  const renderFilterOption = useCallback((type: "format" | "orientation" | "tag" | "sort") => {
     const getOptionLabel = () => {
       switch (type) {
         case "format":
-          return formatOptions.find(opt => opt.value === format)?.label || "选择格式";
+          return formatOptions.find((opt) => opt.value === format)?.label || "选择格式";
         case "orientation":
-          return orientationOptions.find(opt => opt.value === orientation)?.label || "选择方向";
+          return orientationOptions.find((opt) => opt.value === orientation)?.label || "选择方向";
         case "tag":
           return tag || "选择标签";
+        case "sort":
+          return SORT_OPTIONS.find((opt) => opt.value === sort)?.label || "排序";
       }
     };
 
@@ -118,8 +157,10 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
           return formatOptions;
         case "orientation":
           return orientationOptions;
+        case "sort":
+          return SORT_OPTIONS;
         case "tag":
-          return filteredTags.map(t => ({ value: t, label: t }));
+          return filteredTags.map((t) => ({ value: t, label: t }));
       }
     };
 
@@ -135,13 +176,8 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               : "bg-slate-200 dark:bg-gray-800/40 text-slate-700 dark:text-gray-300 hover:bg-slate-300 dark:hover:bg-gray-800/60 backdrop-blur-md border border-slate-300/50 dark:border-transparent"
           }`}
         >
-          <span className="font-medium">{getOptionLabel()}</span>
-          <motion.div
-            animate={{ rotate: isActive ? 180 : 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <ChevronDownIcon className="h-4 w-4" />
-          </motion.div>
+          <span className="font-medium truncate">{getOptionLabel()}</span>
+          <ChevronDownIcon className={`h-4 w-4 transition-transform ${isActive ? "rotate-180" : ""}`} />
         </button>
 
         <AnimatePresence>
@@ -158,8 +194,8 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
                   <div className="relative">
                     <input
                       type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
+                      value={tagSearchQuery}
+                      onChange={(e) => setTagSearchQuery(e.target.value)}
                       placeholder="搜索标签..."
                       className="w-full px-3 py-2 pl-9 rounded-lg bg-gray-100 dark:bg-gray-700/50 text-gray-800 dark:text-gray-200 placeholder-gray-500 dark:placeholder-gray-400 focus:outline-hidden focus:ring-2 focus:ring-indigo-500/50 text-sm"
                     />
@@ -169,26 +205,27 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               )}
 
               <div className={`${type === "tag" ? "max-h-60" : ""} overflow-y-auto`}>
-                {type === "tag" && (
+                {(type === "tag" || type === "sort") && (
                   <button
-                    onClick={() => handleFilterChange("tag", "")}
+                    onClick={() => handleFilterChange(type, type === "tag" ? "" : "upload_time")}
                     className={`w-full px-4 py-2.5 text-sm text-left transition-colors ${
-                      tag === ""
+                      (type === "tag" && tag === "") || (type === "sort" && sort === "upload_time")
                         ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                     }`}
                   >
-                    全部
+                    {type === "tag" ? "全部" : "上传时间"}
                   </button>
                 )}
-                {getOptions().map(option => (
+                {getOptions().map((option) => (
                   <button
                     key={option.value}
                     onClick={() => handleFilterChange(type, option.value)}
                     className={`w-full px-4 py-2.5 text-sm text-left transition-colors ${
                       (type === "format" && format === option.value) ||
                       (type === "orientation" && orientation === option.value) ||
-                      (type === "tag" && tag === option.value)
+                      (type === "tag" && tag === option.value) ||
+                      (type === "sort" && sort === option.value)
                         ? "bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300"
                         : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700/50"
                     }`}
@@ -207,8 +244,8 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
         </AnimatePresence>
       </div>
     );
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDropdown, format, orientation, tag, formatOptions, orientationOptions, filteredTags, searchQuery, handleFilterChange]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeDropdown, format, orientation, tag, sort, formatOptions, orientationOptions, filteredTags, handleFilterChange]);
 
   return (
     <>
@@ -235,6 +272,18 @@ export default function ImageFilters({ onFilterChange }: ImageFiltersProps) {
               {renderFilterOption("format")}
               {renderFilterOption("orientation")}
               {renderFilterOption("tag")}
+
+              {/* 排序 */}
+              <div className="flex items-center gap-2">
+                <div className="flex-1">{renderFilterOption("sort")}</div>
+                <button
+                  onClick={handleToggleOrder}
+                  className="px-3 py-3 rounded-xl text-sm bg-slate-200 dark:bg-gray-800/40 text-slate-700 dark:text-gray-300 hover:bg-slate-300 dark:hover:bg-gray-800/60 border border-slate-300/50 dark:border-transparent flex items-center justify-center"
+                  title={order === "desc" ? "降序" : "升序"}
+                >
+                  {order === "desc" ? <ArrowDownIcon className="h-4 w-4" /> : <ChevronUpIcon className="h-4 w-4" />}
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

@@ -1,4 +1,3 @@
-import { getApiKey } from "./auth";
 import { buildApiUrl, ensureApiBaseUrl } from "./baseUrl";
 
 interface RequestOptions extends RequestInit {
@@ -11,8 +10,6 @@ export async function request<T>(
 ): Promise<T> {
   await ensureApiBaseUrl();
 
-  const apiKey = getApiKey();
-
   const { params, ...restOptions } = options;
 
   // 构建URL
@@ -23,15 +20,9 @@ export async function request<T>(
     }
   }
 
-  // 添加认证头
-  const headers = {
-    ...options.headers,
-    ...(apiKey ? { Authorization: `Bearer ${apiKey}` } : {}),
-  };
-
   const response = await fetch(url.toString(), {
     ...restOptions,
-    headers,
+    credentials: "include",
   });
 
   if (!response.ok) {

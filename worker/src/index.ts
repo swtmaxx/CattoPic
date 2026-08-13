@@ -9,48 +9,36 @@ import { dispatchImageDeletions, processPendingDeletionJobs, toDeletionTarget } 
 
 // Import handlers
 import { uploadSingleHandler } from './handlers/upload';
-import { imagesHandler, imageDetailHandler, updateImageHandler, deleteImageHandler } from './handlers/images';
+import { imagesHandler, imageDetailHandler, updateImageHandler, deleteImageHandler, batchDeleteImagesHandler } from './handlers/images';
 import { randomHandler } from './handlers/random';
 import { faviconHandler } from './handlers/favicon';
 import { tagsHandler, createTagHandler, renameTagHandler, deleteTagHandler, batchTagsHandler } from './handlers/tags';
-import { validateApiKeyHandler, configHandler, cleanupHandler } from './handlers/system';
+import { setupHandler, loginHandler, logoutHandler, sessionHandler, changeAccountHandler } from './handlers/auth';
+import { configHandler, updateConfigHandler, statsHandler, cleanupHandler } from './handlers/system';
 import { handleQueueBatch } from './handlers/queue';
 import type { QueueMessage } from './types/queue';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS middleware
+// CORS middleware - echo origin so credentials (cookies) can be used cross-origin
 app.use('*', cors({
-  origin: '*',
+  origin: (origin) => origin || '*',
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type', 'Authorization'],
-  maxAge: 86400
+  allowHeaders: ['Content-Type'],
+  credentials: true,
+  maxAge: 86400,
 }));
 
 // Handle preflight requests
 app.options('*', () => corsResponse());
 
-// Auth middleware for protected routes
+// Auth middleware for protected routes (session cookie based)
 const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
-  const authHeader = c.req.header('Authorization');
-  const apiKey = AuthService.extractApiKey(authHeader ?? null);
+  const service = new AuthService(c.env.DB, c.env.CACHE_KV, c.env.ENVIRONMENT !== 'development');
+  const valid = await service.validateSession(c.req.raw);
 
-  if (!apiKey) {
+  if (!valid) {
     return unauthorizedResponse();
-  }
-
-  const authService = new AuthService(c.env.DB);
-  const isValid = await authService.validateApiKey(apiKey);
-
-  if (!isValid) {
-    return unauthorizedResponse();
-  }
-
-  if (new URL(c.req.url).pathname === '/api/validate-api-key') {
-    c.executionCtx.waitUntil(
-      authService.recordApiKeyUsage(apiKey)
-        .catch((err) => console.error('Failed to record API key usage:', err))
-    );
   }
 
   await next();
@@ -65,10 +53,14 @@ app.get('/favicon.svg', faviconHandler);
 // Random image (public, no auth required)
 app.get('/api/random', randomHandler);
 
-// === Protected Routes ===
+// Auth (public endpoints; setup only works while no admin exists)
+app.post('/api/auth/setup', setupHandler);
+app.post('/api/auth/login', loginHandler);
+app.post('/api/auth/logout', logoutHandler);
+app.get('/api/auth/session', sessionHandler);
+app.post('/api/auth/account', authMiddleware, changeAccountHandler);
 
-// Auth
-app.post('/api/validate-api-key', authMiddleware, validateApiKeyHandler);
+// === Protected Routes ===
 
 // Upload (single file per request - Cloudflare Worker best practice)
 app.post('/api/upload/single', authMiddleware, uploadSingleHandler);
@@ -78,6 +70,7 @@ app.get('/api/images', authMiddleware, imagesHandler);
 app.get('/api/images/:id', authMiddleware, imageDetailHandler);
 app.put('/api/images/:id', authMiddleware, updateImageHandler);
 app.delete('/api/images/:id', authMiddleware, deleteImageHandler);
+app.post('/api/images/batch-delete', authMiddleware, batchDeleteImagesHandler);
 
 // Tags CRUD
 app.get('/api/tags', authMiddleware, tagsHandler);
@@ -88,6 +81,8 @@ app.post('/api/tags/batch', authMiddleware, batchTagsHandler);
 
 // System
 app.get('/api/config', authMiddleware, configHandler);
+app.put('/api/config', authMiddleware, updateConfigHandler);
+app.get('/api/admin/stats', authMiddleware, statsHandler);
 app.post('/api/cleanup', authMiddleware, cleanupHandler);
 
 // 404 handler - ensure CORS headers are included
@@ -100,7 +95,7 @@ app.notFound(() => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     }
   );
@@ -117,7 +112,7 @@ app.onError((err) => {
         'Content-Type': 'application/json',
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+        'Access-Control-Allow-Headers': 'Content-Type',
       },
     }
   );

@@ -47,6 +47,9 @@ interface ImageCardProps {
   onClick: (image: ImageFile) => void;
   onDelete: (id: string) => Promise<void>;
   displayWidth: number;
+  selectable?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
 const ImageCard = React.memo(function ImageCard({
@@ -54,6 +57,9 @@ const ImageCard = React.memo(function ImageCard({
   onClick,
   onDelete,
   displayWidth,
+  selectable = false,
+  selected = false,
+  onToggleSelect,
 }: ImageCardProps) {
   const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
   const [isHovered, setIsHovered] = useState(false);
@@ -298,7 +304,21 @@ const ImageCard = React.memo(function ImageCard({
               isLoading ? "opacity-0" : "opacity-100"
             }`}
           >
-            <div className="flex space-x-1">
+            <div className="flex space-x-1 items-center">
+              {selectable && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onToggleSelect?.(image.id);
+                  }}
+                  className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
+                    selected ? "bg-indigo-500 border-indigo-500" : "bg-white/70 border-white"
+                  }`}
+                  title={selected ? "取消选择" : "选择"}
+                >
+                  {selected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+                </button>
+              )}
               <span
                 className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-xs ${
                   isGif ? "bg-green-500/70" : "bg-blue-500/70"

@@ -28,10 +28,8 @@ interface UploadSectionProps {
   expiryMinutes: number
   setExpiryMinutes: React.Dispatch<React.SetStateAction<number>>
   onTagsChange?: (tags: string[]) => void
-  compressionQuality: number
-  compressionMaxWidth: number
-  preserveAnimation: boolean
-  outputFormat: 'webp' | 'avif' | 'both'
+  concurrency?: number
+  onConcurrencyChange?: (n: number) => void
   // ZIP上传完成回调
   onZipUploadComplete?: (results: UploadResult[]) => void
 }
@@ -48,10 +46,8 @@ export default function UploadSection({
   expiryMinutes,
   setExpiryMinutes,
   onTagsChange,
-  compressionQuality,
-  compressionMaxWidth,
-  preserveAnimation,
-  outputFormat,
+  concurrency = 5,
+  onConcurrencyChange,
   onZipUploadComplete
 }: UploadSectionProps) {
   const [uploadMode, setUploadMode] = useState<UploadMode>('images')
@@ -208,10 +204,7 @@ export default function UploadSection({
     zipUpload.startUpload({
       tags: selectedTags,
       expiryMinutes,
-      quality: compressionQuality,
-      maxWidth: compressionMaxWidth,
-      preserveAnimation,
-      outputFormat,
+      concurrency,
       onCompleted: onZipUploadComplete,
     })
   }
@@ -314,6 +307,24 @@ export default function UploadSection({
             />
 
             <ExpirySelector onChange={setExpiryMinutes} />
+
+            {/* 上传并发设置 */}
+            <div className="mb-6 flex items-center space-x-4">
+              <div className="flex items-center">
+                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">上传并发：</span>
+              </div>
+              <div className="flex-1">
+                <select
+                  value={concurrency}
+                  onChange={(e) => onConcurrencyChange?.(Number(e.target.value))}
+                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm shadow-xs"
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                    <option key={n} value={n}>{n} 个同时上传</option>
+                  ))}
+                </select>
+              </div>
+            </div>
 
             <TagSelector
               selectedTags={selectedTags}

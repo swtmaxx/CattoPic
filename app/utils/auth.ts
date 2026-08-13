@@ -1,54 +1,55 @@
+// Session helpers (username/password login)
 import { buildApiUrl, ensureApiBaseUrl } from "./baseUrl";
 
-const API_KEY_KEY = "cattopic_api_key";
-export const API_KEY_CHANGE_EVENT = "cattopic_api_key_change";
+export interface SessionStatus {
+  authenticated: boolean;
+  needsSetup: boolean;
+}
 
-export const getApiKey = (): string | null => {
-  if (typeof window !== "undefined") {
-    return localStorage.getItem(API_KEY_KEY);
+export async function fetchSessionStatus(): Promise<SessionStatus> {
+  await ensureApiBaseUrl();
+  const response = await fetch(buildApiUrl("/api/auth/session").toString(), {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  if (!response.ok) throw new Error("会话检查失败");
+  const data = await response.json();
+  return { authenticated: !!data.authenticated, needsSetup: !!data.needsSetup };
+}
+
+export async function login(username: string, password: string): Promise<void> {
+  await ensureApiBaseUrl();
+  const response = await fetch(buildApiUrl("/api/auth/login").toString(), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "登录失败");
   }
-  return null;
-};
+}
 
-export const setApiKey = (apiKey: string): void => {
-  if (typeof window !== "undefined") {
-    localStorage.setItem(API_KEY_KEY, apiKey);
-    window.dispatchEvent(new Event(API_KEY_CHANGE_EVENT));
+export async function logout(): Promise<void> {
+  await ensureApiBaseUrl();
+  await fetch(buildApiUrl("/api/auth/logout").toString(), {
+    method: "POST",
+    credentials: "include",
+  }).catch(() => undefined);
+}
+
+export async function setupAdmin(username: string, password: string): Promise<void> {
+  await ensureApiBaseUrl();
+  const response = await fetch(buildApiUrl("/api/auth/setup").toString(), {
+    method: "POST",
+    credentials: "include",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ username, password }),
+  });
+  if (!response.ok) {
+    const data = await response.json().catch(() => null);
+    throw new Error(data?.error || "初始化失败");
   }
-};
-
-export const removeApiKey = (): void => {
-  if (typeof window !== "undefined") {
-    localStorage.removeItem(API_KEY_KEY);
-    window.dispatchEvent(new Event(API_KEY_CHANGE_EVENT));
-  }
-};
-
-export const validateApiKey = async (apiKey: string): Promise<boolean> => {
-  try {
-    await ensureApiBaseUrl();
-    const response = await fetch(buildApiUrl("/api/validate-api-key").toString(), {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${apiKey}`,
-      },
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error("API Key validation failed:", {
-        status: response.status,
-        statusText: response.statusText,
-        responseText: errorText
-      });
-      return false;
-    }
-
-    const data = await response.json();
-    return data.valid === true;
-  } catch (error) {
-    console.error("API Key validation error:", error);
-    return false;
-  }
-};
+}

@@ -3,7 +3,6 @@
 import { useState, useCallback, useMemo } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../utils/request';
-import { getApiKey } from '../utils/auth';
 import { Tag } from '../types';
 import { queryKeys } from '../lib/queryKeys';
 
@@ -48,11 +47,6 @@ export function useTags(): UseTagsReturn {
   } = useQuery({
     queryKey: queryKeys.tags.list(),
     queryFn: async () => {
-      // 每次查询时检查 API Key
-      const apiKey = getApiKey();
-      if (!apiKey) {
-        throw new Error('请先验证 API Key');
-      }
       const response = await api.get<TagsResponse>('/api/tags');
       if (response.success && response.tags) {
         return response.tags;

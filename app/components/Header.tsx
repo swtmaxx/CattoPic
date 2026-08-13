@@ -4,21 +4,21 @@ import Link from 'next/link'
 import { useTheme } from '../hooks/useTheme'
 import { usePathname } from 'next/navigation'
 import { motion } from 'motion/react'
-import { ImageIcon, HamburgerMenuIcon, LockClosedIcon, SunIcon, MoonIcon, TagIcon, Link2Icon } from './ui/icons'
+import { ImageIcon, HamburgerMenuIcon, SunIcon, MoonIcon, TagIcon, Link2Icon, PersonIcon } from './ui/icons'
 import { useQueryClient } from '@tanstack/react-query'
 import { queryKeys } from '../lib/queryKeys'
 import type { ImageListResponse } from '../types'
 import { api } from '../utils/request'
 
 interface HeaderProps {
-  onApiKeyClick: () => void
   onTagManageClick?: () => void
   onRandomApiClick?: () => void
+  onLogoutClick?: () => void
   title?: string
-  isKeyVerified?: boolean
+  authenticated?: boolean
 }
 
-export default function Header({ onApiKeyClick, onTagManageClick, onRandomApiClick, title, isKeyVerified = false }: HeaderProps) {
+export default function Header({ onTagManageClick, onRandomApiClick, onLogoutClick, title, authenticated = false }: HeaderProps) {
   const { isDarkMode, toggleTheme } = useTheme()
   const pathname = usePathname()
   const queryClient = useQueryClient()
@@ -83,37 +83,26 @@ export default function Header({ onApiKeyClick, onTagManageClick, onRandomApiCli
           </button>
         )}
 
-        <button onClick={onApiKeyClick} className="btn-icon relative">
-          <LockClosedIcon className="h-6 w-6" />
+        {pathname?.startsWith('/admin') && (
+          <Link href="/admin" className="btn-icon" title="后台管理">
+            <PersonIcon className="h-6 w-6" />
+          </Link>
+        )}
 
-          {isKeyVerified && (
-            <motion.div
-              className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
-              initial={{ scale: 0, opacity: 0 }}
-              animate={{
-                scale: 1,
-                opacity: 1,
-                boxShadow: ["0 0 0 0 rgba(34, 197, 94, 0.4)", "0 0 0 8px rgba(34, 197, 94, 0)", "0 0 0 0 rgba(34, 197, 94, 0)"],
-              }}
-              transition={{
-                scale: { duration: 0.3, ease: "easeOut" },
-                opacity: { duration: 0.3, ease: "easeOut" },
-                boxShadow: {
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeOut"
-                }
-              }}
-            >
+        {onLogoutClick && (
+          <button onClick={onLogoutClick} className="btn-icon relative" title="退出登录">
+            <PersonIcon className="h-6 w-6" />
+            {authenticated && (
               <motion.div
+                className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
-                transition={{ delay: 0.2, duration: 0.2 }}
-                className="w-2 h-2 bg-white rounded-full"
-              />
-            </motion.div>
-          )}
-        </button>
+              >
+                <motion.div className="w-2 h-2 bg-white rounded-full" />
+              </motion.div>
+            )}
+          </button>
+        )}
 
         <button onClick={toggleTheme} className="btn-icon">
           {isDarkMode ? (
@@ -125,4 +114,4 @@ export default function Header({ onApiKeyClick, onTagManageClick, onRandomApiCli
       </div>
     </div>
   )
-} 
+}

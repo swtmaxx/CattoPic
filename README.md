@@ -198,13 +198,11 @@ GitHub Actions deployment avoids configuration conflicts when syncing upstream.
 
 4. **Trigger**: Push to `worker/**` on main branch, or manually trigger via Actions tab
 
-### 5. Add API Key
+### 5. 初始化管理员账号（网页）
 
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('your-secure-api-key', datetime('now'));
-"
-```
+部署前端后，首次打开 `/admin/setup` 页面，在网页中创建管理员账号（用户名 + 密码，PBKDF2 哈希存 D1）。之后通过 `/admin/login` 登录后台。
+
+> 旧版基于 API Key 的鉴权已移除；`api_keys` 表保留但不再使用。
 
 ### 6. Deploy Frontend
 
@@ -214,6 +212,8 @@ Deploy to Vercel with environment variable:
 |----------|-------|
 | `NEXT_PUBLIC_API_URL` | `https://your-worker.workers.dev` |
 | `NEXT_PUBLIC_REMOTE_PATTERNS` | `https://your-worker.workers.dev,https://r2`|
+
+> 后台管理需要登录（用户名/密码会话）。上传、删除、管理接口全部要求登录态；随机图 API（`/api/random`）保持公开。
 
 ## Upgrading Existing Deployments
 

@@ -17,9 +17,11 @@ interface ImageModalProps {
   isOpen: boolean;
   onClose: () => void;
   onDelete?: (id: string) => Promise<void>;
+  onRename?: (image: ImageType) => void;
+  onExpiry?: (image: ImageType) => void;
 }
 
-export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageModalProps) {
+export default function ImageModal({ image, isOpen, onClose, onDelete, onRename, onExpiry }: ImageModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -110,13 +112,31 @@ export default function ImageModal({ image, isOpen, onClose, onDelete }: ImageMo
             {/* 底部操作区域 */}
             <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/50">
               {canDelete && !showDeleteConfirm && (
-                <button
-                  onClick={() => setShowDeleteConfirm(true)}
-                  className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
-                >
-                  <TrashIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
-                  删除图片
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  {onRename && (
+                    <button
+                      onClick={() => onRename(image)}
+                      className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all duration-200"
+                    >
+                      重命名
+                    </button>
+                  )}
+                  {onExpiry && (
+                    <button
+                      onClick={() => onExpiry(image)}
+                      className="px-4 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all duration-200"
+                    >
+                      修改过期
+                    </button>
+                  )}
+                  <button
+                    onClick={() => setShowDeleteConfirm(true)}
+                    className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                  >
+                    <TrashIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
+                    删除图片
+                  </button>
+                </div>
               )}
 
               {showDeleteConfirm && (

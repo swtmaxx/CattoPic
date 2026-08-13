@@ -164,6 +164,7 @@ export interface Config {
   maxFileSize: number;
   supportedFormats: string[];
   imageQuality: number;
+  compression: Required<CompressionOptions>;
 }
 
 // Filter types
@@ -173,6 +174,9 @@ export interface ImageFilters {
   tag?: string;
   orientation?: 'landscape' | 'portrait';
   format?: 'all' | 'gif' | 'webp' | 'avif' | 'original';
+  search?: string;
+  sort?: 'upload_time' | 'name' | 'size';
+  order?: 'asc' | 'desc';
 }
 
 export interface RandomFilters {
@@ -180,4 +184,16 @@ export interface RandomFilters {
   exclude?: string[];
   orientation?: 'landscape' | 'portrait' | 'auto';
   format?: 'original' | 'webp' | 'avif';
+}
+
+// Admin dashboard statistics
+export interface AdminStats {
+  totalImages: number;
+  totalStorageBytes: number;
+  expiredImages: number;
+  formatDistribution: Array<{ format: string; count: number }>;
+  orientationDistribution: Array<{ orientation: string; count: number }>;
+  topTags: Array<{ name: string; count: number }>;
+  dailyTrend: Array<{ date: string; count: number }>;
+  recentUploads: ImageMetadata[];
 }

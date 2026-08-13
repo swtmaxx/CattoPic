@@ -8,6 +8,7 @@ import { parseNumber, validateOrientation, validateImageListFormat, parseTags, s
 import { buildImageUrls } from '../utils/imageTransform';
 
 const MAX_IMAGES_PAGE_SIZE = 100;
+const MAX_BATCH_IMAGE_IDS = 500;
 
 function clampInt(value: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return min;
@@ -28,9 +29,14 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
     const tag = rawTag ? sanitizeTagName(rawTag) || undefined : undefined;
     const orientation = validateOrientation(url.searchParams.get('orientation'));
     const format = validateImageListFormat(url.searchParams.get('format')) || 'all';
+    const search = url.searchParams.get('search')?.trim() || undefined;
+    const sortRaw = url.searchParams.get('sort');
+    const sort = sortRaw === 'name' || sortRaw === 'size' ? sortRaw : 'upload_time';
+    const orderRaw = url.searchParams.get('order');
+    const order = orderRaw === 'asc' ? 'asc' : 'desc';
 
     const cache = new CacheService(c.env.CACHE_KV);
-    const cacheKey = CacheKeys.imagesList(page, limit, tag, orientation, format);
+    const cacheKey = CacheKeys.imagesList(page, limit, tag, orientation, format, search, sort, order);
 
     // Try to get from cache - cache stores the response data object, not the Response
     interface ImagesListCache {
@@ -46,7 +52,7 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
     }
 
     const metadata = new MetadataService(c.env.DB);
-    const { images, total } = await metadata.getImages({ page, limit, tag, orientation, format });
+    const { images, total } = await metadata.getImages({ page, limit, tag, orientation, format, search, sort, order });
 
     const baseUrl = c.env.R2_PUBLIC_URL;
 
@@ -154,7 +160,7 @@ export async function updateImageHandler(c: Context<{ Bindings: Env }>): Promise
     const metadata = new MetadataService(c.env.DB);
 
     // Build updates object
-    const updates: { tags?: string[]; expiryTime?: string | null } = {};
+    const updates: { tags?: string[]; expiryTime?: string | null; originalName?: string } = {};
 
     if (body.tags !== undefined) {
       if (body.tags === null) {
@@ -183,6 +189,13 @@ export async function updateImageHandler(c: Context<{ Bindings: Env }>): Promise
       } else {
         updates.expiryTime = null;
       }
+    }
+
+    if (body.originalName !== undefined) {
+      if (typeof body.originalName !== 'string' || body.originalName.trim().length === 0 || body.originalName.trim().length > 255) {
+        return errorResponse('originalName must be a non-empty string (max 255 chars)');
+      }
+      updates.originalName = body.originalName.trim();
     }
 
     const updated = await metadata.updateImage(id, updates);
@@ -271,5 +284,64 @@ export async function deleteImageHandler(c: Context<{ Bindings: Env }>): Promise
   } catch (err) {
     console.error('Delete image handler error:', err);
     return errorResponse('删除图片失败');
+  }
+}
+
+
+// POST /api/images/batch-delete - Batch delete images
+export async function batchDeleteImagesHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
+  try {
+    const body = await c.req.json().catch(() => null);
+    const ids = body?.ids;
+
+    if (!Array.isArray(ids) || ids.length === 0) {
+      return errorResponse('图片ID列表不能为空');
+    }
+
+    const stringIds = ids.filter((id: unknown): id is string => typeof id === 'string');
+    if (stringIds.length !== ids.length || !stringIds.every(isValidUUID)) {
+      return errorResponse('图片ID格式无效');
+    }
+
+    const normalizedIds = Array.from(new Set(stringIds));
+    if (normalizedIds.length > MAX_BATCH_IMAGE_IDS) {
+      return errorResponse(`一次最多删除 ${MAX_BATCH_IMAGE_IDS} 张图片`, 413);
+    }
+
+    const metadataService = new MetadataService(c.env.DB);
+    const rows = await metadataService.getImagePathsByIds(normalizedIds);
+    const targets = rows.map((row) => toDeletionTarget(row.id, {
+      original: row.paths.original,
+      webp: row.paths.webp || undefined,
+      avif: row.paths.avif || undefined,
+    }));
+
+    if (targets.length === 0) {
+      return successResponse({ deletedCount: 0, message: '没有找到要删除的图片' });
+    }
+
+    // 1. 同步删除 D1 元数据并持久化 R2 删除任务
+    const deletedCount = await metadataService.deleteImagesWithDeletionJobs(targets);
+
+    // 2. 同步失效 KV 缓存
+    const cache = new CacheService(c.env.CACHE_KV);
+    await Promise.all([
+      cache.invalidateImagesList(),
+      cache.invalidateTagsList(),
+      cache.invalidateImageDetails(targets.map((t) => t.id)),
+    ]);
+
+    // 3. R2 文件删除放到后台；失败会保留 deletion_jobs 供 cron/cleanup 重试
+    if (targets.length > 0) {
+      c.executionCtx.waitUntil(
+        dispatchImageDeletions(c.env, targets, 'batch')
+          .catch((err) => console.error('Background batch R2 deletion failed:', err))
+      );
+    }
+
+    return successResponse({ deletedCount, message: `已删除 ${deletedCount} 张图片` });
+  } catch (err) {
+    console.error('Batch delete error:', err);
+    return errorResponse('批量删除失败');
   }
 }

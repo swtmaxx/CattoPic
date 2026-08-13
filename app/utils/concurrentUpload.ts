@@ -13,10 +13,10 @@ export interface ConcurrentUploadOptions {
   concurrency?: number
   tags: string[]
   expiryMinutes: number
-  quality: number
-  maxWidth: number
-  preserveAnimation: boolean
-  outputFormat: 'webp' | 'avif' | 'both'
+  quality?: number
+  maxWidth?: number
+  preserveAnimation?: boolean
+  outputFormat?: 'webp' | 'avif' | 'both'
   onFileStatusChange: (fileId: string, status: FileUploadStatus, result?: UploadResult) => void
   signal?: AbortSignal
 }
@@ -31,10 +31,10 @@ export async function concurrentUpload(options: ConcurrentUploadOptions): Promis
     concurrency = 5,
     tags,
     expiryMinutes,
-    quality,
-    maxWidth,
-    preserveAnimation,
-    outputFormat,
+    quality = 90,
+    maxWidth = 0,
+    preserveAnimation = true,
+    outputFormat = 'both',
     onFileStatusChange,
     signal,
   } = options

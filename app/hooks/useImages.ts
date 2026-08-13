@@ -31,6 +31,9 @@ interface UseImagesOptions {
   tag?: string;
   orientation?: string;
   format?: string;
+  search?: string;
+  sort?: "upload_time" | "name" | "size";
+  order?: "asc" | "desc";
   limit?: number;
   enabled?: boolean;
 }
@@ -82,7 +85,7 @@ function mergeFirstPageImages(
 
 // Hook for infinite scrolling image list
 export function useInfiniteImages(options: UseImagesOptions = {}) {
-  const { tag = '', orientation = '', format = 'all', limit = 24, enabled = true } = options;
+  const { tag = '', orientation = '', format = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const recentUploads = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
@@ -101,7 +104,7 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
   } satisfies InfiniteData<ImageListResponse>) : null;
 
   const query = useInfiniteQuery({
-    queryKey: queryKeys.images.list({ tag, orientation, format, limit }),
+    queryKey: queryKeys.images.list({ tag, orientation, format, search, sort, order, limit }),
     queryFn: async ({ pageParam = 1 }) => {
       const params: Record<string, string> = {
         page: String(pageParam),
@@ -110,6 +113,9 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
       if (tag) params.tag = tag;
       if (orientation) params.orientation = orientation;
       if (format && format !== 'all') params.format = format;
+      if (search) params.search = search;
+      if (sort !== 'upload_time') params.sort = sort;
+      if (order !== 'desc') params.order = order;
 
       const response = await api.get<ImageListResponse>('/api/images', params);
       return response;
@@ -186,7 +192,7 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
 
 // Hook for paginated image list (non-infinite)
 export function useImages(options: UseImagesOptions & { page?: number } = {}) {
-  const { page = 1, tag = '', orientation = '', format = 'all', limit = 24, enabled = true } = options;
+  const { page = 1, tag = '', orientation = '', format = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const recentUploads = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
@@ -201,7 +207,7 @@ export function useImages(options: UseImagesOptions & { page?: number } = {}) {
   } satisfies ImageListResponse) : null;
 
   const query = useQuery({
-    queryKey: queryKeys.images.list({ page, tag, orientation, format, limit }),
+    queryKey: queryKeys.images.list({ page, tag, orientation, format, search, sort, order, limit }),
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),
@@ -381,7 +387,7 @@ export function useUpdateImage() {
       data,
     }: {
       id: string;
-      data: { tags?: string[]; expiryMinutes?: number };
+      data: { tags?: string[]; expiryMinutes?: number; originalName?: string };
     }) => {
       const response = await api.put<UpdateResponse>(`/api/images/${id}`, data);
       if (!response.success) {

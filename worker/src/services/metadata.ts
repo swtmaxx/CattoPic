@@ -1,4 +1,4 @@
-import type { ImageMetadata, ImageFilters, Tag, ImageRow } from '../types';
+import type { ImageMetadata, ImageFilters, Tag, ImageRow, AdminStats } from '../types';
 import type { ImagePaths } from '../types/queue';
 
 export interface ImageDeletionTarget {
@@ -14,6 +14,7 @@ export interface DeletionJob extends ImageDeletionTarget {
 interface ImageUpdateFields {
   tags?: string[];
   expiryTime?: string | null;
+  originalName?: string;
 }
 
 const D1_BATCH_CHUNK_SIZE = 80;
@@ -178,12 +179,24 @@ export class MetadataService {
       );
     }
 
+    // Update original name
+    if (updates.originalName !== undefined) {
+      statements.push(
+        this.db.prepare(`UPDATE images SET original_name = ? WHERE id = ?`)
+          .bind(updates.originalName, id)
+      );
+    }
+
     if (statements.length > 0) {
       await this.db.batch(statements);
     }
 
     // Return constructed metadata without re-reading from database
-    return this.rowToMetadata({ ...image, expiry_time: finalExpiryTime }, finalTags);
+    return this.rowToMetadata({
+      ...image,
+      expiry_time: finalExpiryTime,
+      original_name: updates.originalName ?? image.original_name,
+    }, finalTags);
   }
 
   async deleteImage(id: string): Promise<boolean> {
@@ -320,7 +333,7 @@ export class MetadataService {
   }
 
   async getImages(filters: ImageFilters): Promise<{ images: ImageMetadata[]; total: number }> {
-    const { page = 1, limit = 12, tag, orientation, format } = filters;
+    const { page = 1, limit = 12, tag, orientation, format, search, sort = 'upload_time', order = 'desc' } = filters;
     const offset = (page - 1) * limit;
 
     let baseQuery = 'FROM images i';
@@ -358,6 +371,11 @@ export class MetadataService {
       }
     }
 
+    if (search) {
+      whereConditions.push('i.original_name LIKE ?');
+      params.push(`%${search}%`);
+    }
+
     const whereClause = whereConditions.length > 0
       ? 'WHERE ' + whereConditions.join(' AND ')
       : '';
@@ -370,9 +388,11 @@ export class MetadataService {
     const total = countResult?.count || 0;
 
     // Get paginated data
+    const sortColumn = sort === 'name' ? 'i.original_name' : sort === 'size' ? 'i.size_original' : 'i.upload_time';
+    const direction = order === 'asc' ? 'ASC' : 'DESC';
     const imagesResult = await this.db.prepare(`
       SELECT DISTINCT i.* ${baseQuery} ${whereClause}
-      ORDER BY i.upload_time DESC LIMIT ? OFFSET ?
+      ORDER BY ${sortColumn} ${direction} LIMIT ? OFFSET ?
     `).bind(...params, limit, offset).all<ImageRow>();
 
     const images = await this.enrichWithTags(imagesResult.results || []);
@@ -443,6 +463,88 @@ export class MetadataService {
     // 使用 enrichWithTags 获取标签（单次额外查询）
     const enriched = await this.enrichWithTags([result]);
     return enriched[0] || null;
+  }
+
+  async getImagePathsByIds(ids: string[]): Promise<Array<{
+    id: string;
+    paths: { original: string; webp: string | null; avif: string | null };
+  }>> {
+    if (ids.length === 0) return [];
+
+    const result: Array<{ id: string; path_original: string; path_webp: string | null; path_avif: string | null }> = [];
+    for (let i = 0; i < ids.length; i += D1_BATCH_CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + D1_BATCH_CHUNK_SIZE);
+      const placeholders = chunk.map(() => '?').join(',');
+      const rows = await this.db.prepare(`
+        SELECT id, path_original, path_webp, path_avif FROM images
+        WHERE id IN (${placeholders})
+      `).bind(...chunk).all<{ id: string; path_original: string; path_webp: string | null; path_avif: string | null }>();
+      result.push(...(rows.results || []));
+    }
+
+    return result.map((row) => ({
+      id: row.id,
+      paths: { original: row.path_original, webp: row.path_webp, avif: row.path_avif },
+    }));
+  }
+
+  // === Admin stats ===
+
+  async getAdminStats(): Promise<AdminStats> {
+    const now = new Date().toISOString();
+    const weekAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+    const [totalResult, formatResult, orientationResult, tagResult, expiredResult, trendResult, recentResult] = await this.db.batch([
+      this.db.prepare(`
+        SELECT COUNT(*) as count, COALESCE(SUM(size_original), 0) as total
+        FROM images WHERE (expiry_time IS NULL OR expiry_time > ?)
+      `).bind(now),
+      this.db.prepare(`
+        SELECT format, COUNT(*) as count FROM images
+        WHERE (expiry_time IS NULL OR expiry_time > ?)
+        GROUP BY format ORDER BY count DESC
+      `).bind(now),
+      this.db.prepare(`
+        SELECT orientation, COUNT(*) as count FROM images
+        WHERE (expiry_time IS NULL OR expiry_time > ?)
+        GROUP BY orientation
+      `).bind(now),
+      this.db.prepare(`
+        SELECT t.name, COUNT(i.id) as count FROM tags t
+        JOIN image_tags it ON t.id = it.tag_id
+        JOIN images i ON it.image_id = i.id AND (i.expiry_time IS NULL OR i.expiry_time > ?)
+        GROUP BY t.id, t.name
+        ORDER BY count DESC LIMIT 10
+      `).bind(now),
+      this.db.prepare(`
+        SELECT COUNT(*) as count FROM images WHERE expiry_time IS NOT NULL AND expiry_time < ?
+      `).bind(now),
+      this.db.prepare(`
+        SELECT substr(upload_time, 1, 10) as date, COUNT(*) as count FROM images
+        WHERE upload_time >= ?
+        GROUP BY date ORDER BY date ASC
+      `).bind(weekAgo),
+      this.db.prepare(`
+        SELECT * FROM images WHERE (expiry_time IS NULL OR expiry_time > ?)
+        ORDER BY upload_time DESC LIMIT 8
+      `).bind(now),
+    ]);
+
+    const total = (totalResult as D1Result<{ count: number; total: number }>).results?.[0];
+    const expired = (expiredResult as D1Result<{ count: number }>).results?.[0];
+    const recentRows = (recentResult as D1Result<ImageRow>).results || [];
+    const recent = await this.enrichWithTags(recentRows);
+
+    return {
+      totalImages: total?.count || 0,
+      totalStorageBytes: total?.total || 0,
+      expiredImages: expired?.count || 0,
+      formatDistribution: (formatResult as D1Result<{ format: string; count: number }>).results || [],
+      orientationDistribution: (orientationResult as D1Result<{ orientation: string; count: number }>).results || [],
+      topTags: (tagResult as D1Result<{ name: string; count: number }>).results || [],
+      dailyTrend: (trendResult as D1Result<{ date: string; count: number }>).results || [],
+      recentUploads: recent,
+    };
   }
 
   // === Tag Management ===

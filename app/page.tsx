@@ -1,36 +1,37 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { getApiKey, validateApiKey, setApiKey } from './utils/auth'
+import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { api } from './utils/request'
 import { concurrentUpload } from './utils/concurrentUpload'
-import ApiKeyModal from './components/ApiKeyModal'
 import { UploadResponse, StatusMessage as StatusMessageType, ConfigSettings, ImageFile, UploadResult, ImageListResponse } from './types'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
 import ImageSidebar from './components/ImageSidebar'
 import PreviewSidebar from './components/upload/PreviewSidebar'
-import CompressionSettings from './components/upload/CompressionSettings'
 import { motion } from 'motion/react'
-import { ImageIcon, PlusCircledIcon } from './components/ui/icons'
+import { ImageIcon, PlusCircledIcon, LockClosedIcon, Spinner } from './components/ui/icons'
 import { useDeleteImage, useInvalidateImages } from './hooks/useImages'
 import { useUploadState } from './hooks/useUploadState'
+import { useSession } from './hooks/useSession'
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
 import { queryKeys } from './lib/queryKeys'
 
 const DEFAULT_MAX_UPLOAD_COUNT = 50;
 
 export default function Home() {
-  const [showApiKeyModal, setShowApiKeyModal] = useState(false)
+  const router = useRouter()
+  const { status: sessionStatus, loading: sessionLoading, logout } = useSession()
   const [status, setStatus] = useState<StatusMessageType | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
   const [showResultSidebar, setShowResultSidebar] = useState(false)
   const [showPreviewSidebar, setShowPreviewSidebar] = useState(false)
-  const [isKeyVerified, setIsKeyVerified] = useState(false)
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
   const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [expiryMinutes, setExpiryMinutes] = useState<number>(0)
+  const [concurrency, setConcurrency] = useState(5)
 
   // TanStack Query cache invalidation hook
   const invalidateImages = useInvalidateImages()
@@ -43,12 +44,6 @@ export default function Home() {
 
   // 判断是否正在上传
   const isUploading = phase === 'uploading' || phase === 'processing'
-
-  // 压缩设置状态
-  const [compressionQuality, setCompressionQuality] = useState(90)
-  const [compressionMaxWidth, setCompressionMaxWidth] = useState(0)
-  const [preserveAnimation, setPreserveAnimation] = useState(true)
-  const [outputFormat, setOutputFormat] = useState<'webp' | 'avif' | 'both'>('both')
 
   const primeImagesListCache = useCallback((results: UploadResult[]) => {
     const uploadedImages: ImageFile[] = results
@@ -229,30 +224,15 @@ export default function Home() {
   }, [fileDetails.length])
 
   useEffect(() => {
-    const checkApiKey = async () => {
-      const apiKey = getApiKey()
-      if (!apiKey) {
-        setShowApiKeyModal(true)
-        setIsKeyVerified(false)
-        return
-      }
-
-      const isValid = await validateApiKey(apiKey)
-      if (!isValid) {
-        setShowApiKeyModal(true)
-        setIsKeyVerified(false)
-        setStatus({
-          type: 'error',
-          message: 'API Key无效,请重新验证'
-        })
-      } else {
-        setIsKeyVerified(true)
-      }
+    if (sessionLoading) return
+    if (sessionStatus?.needsSetup) {
+      router.replace('/admin/setup')
+      return
     }
-
-    checkApiKey()
-     
-  }, [])
+    if (!sessionStatus?.authenticated) {
+      router.replace('/admin/login')
+    }
+  }, [sessionStatus, sessionLoading, router])
 
   useEffect(() => {
     // 获取配置
@@ -276,12 +256,6 @@ export default function Home() {
   const handleUpload = async () => {
     if (fileDetails.length === 0) return
 
-    const apiKey = getApiKey()
-    if (!apiKey) {
-      setShowApiKeyModal(true)
-      return
-    }
-
     setStatus(null)
 
     // 初始化上传状态，获取 AbortController
@@ -291,13 +265,9 @@ export default function Home() {
       // 使用并发上传（5个同时）
       const results = await concurrentUpload({
         files: fileDetails,
-        concurrency: 5,
+        concurrency,
         tags: selectedTags,
         expiryMinutes,
-        quality: compressionQuality,
-        maxWidth: compressionMaxWidth,
-        preserveAnimation,
-        outputFormat,
         onFileStatusChange: updateFileStatus,
         signal: controller.signal,
       })
@@ -429,6 +399,14 @@ export default function Home() {
     setSelectedTags(tags);
   }
 
+  const authenticated = sessionStatus?.authenticated === true;
+
+  const handleLogout = useCallback(async () => {
+    await logout();
+    queryClient.clear();
+    router.replace('/admin/login');
+  }, [logout, queryClient, router]);
+
   // 切换侧边栏状态
   const togglePreviewSidebar = () => {
     setShowPreviewSidebar(!showPreviewSidebar);
@@ -437,9 +415,34 @@ export default function Home() {
   // 计算主内容的样式，根据侧边栏是否打开调整内容区域
   const mainContentStyle = { margin: '0 auto' };
 
+  if (sessionLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Spinner className="h-10 w-10 text-indigo-500" />
+      </div>
+    );
+  }
+
+  if (!authenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4">
+        <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-8 text-center">
+          <div className="inline-flex p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 mb-4">
+            <LockClosedIcon className="h-6 w-6 text-indigo-500" />
+          </div>
+          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">需要登录</h1>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">请先登录管理员账号后才能上传图片</p>
+          <Link href="/admin/login" className="inline-block px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium">
+            前往登录
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-6 py-8" style={mainContentStyle}>
-      <Header onApiKeyClick={() => setShowApiKeyModal(true)} isKeyVerified={isKeyVerified} />
+      <Header onLogoutClick={handleLogout} authenticated={authenticated} />
 
       {status && (
         <motion.div
@@ -470,10 +473,8 @@ export default function Home() {
         expiryMinutes={expiryMinutes}
         setExpiryMinutes={setExpiryMinutes}
         onTagsChange={handleTagsChange}
-        compressionQuality={compressionQuality}
-        compressionMaxWidth={compressionMaxWidth}
-        preserveAnimation={preserveAnimation}
-        outputFormat={outputFormat}
+        concurrency={concurrency}
+        onConcurrencyChange={setConcurrency}
         onZipUploadComplete={(results) => {
           // ZIP上传完成后刷新图片缓存
           primeImagesListCache(results)
@@ -484,20 +485,6 @@ export default function Home() {
           })
         }}
       />
-
-      {/* 压缩设置 */}
-      <div className="mt-6">
-        <CompressionSettings
-          quality={compressionQuality}
-          maxWidth={compressionMaxWidth}
-          preserveAnimation={preserveAnimation}
-          outputFormat={outputFormat}
-          onQualityChange={setCompressionQuality}
-          onMaxWidthChange={setCompressionMaxWidth}
-          onPreserveAnimationChange={setPreserveAnimation}
-          onOutputFormatChange={setOutputFormat}
-        />
-      </div>
 
       {/* 只有在有上传结果且结果侧边栏关闭时显示 */}
       {uploadResults.length > 0 && !showResultSidebar && (
@@ -555,19 +542,6 @@ export default function Home() {
         onCancelUpload={handleCancelUpload}
       />
 
-      <ApiKeyModal
-        isOpen={showApiKeyModal}
-        onClose={() => setShowApiKeyModal(false)}
-        onSuccess={(apiKey) => {
-          setApiKey(apiKey)
-          setShowApiKeyModal(false)
-          setIsKeyVerified(true)
-          setStatus({
-            type: 'success',
-            message: 'API Key验证成功！'
-          })
-        }}
-      />
     </div>
   )
 }
