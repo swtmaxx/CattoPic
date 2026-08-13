@@ -2,6 +2,7 @@
 
 import type { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
+import { toCdnCgiImageUrl } from "../utils/cdnImage";
 import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
 import { CheckIcon, TrashIcon } from "./ui/icons";
 
@@ -15,6 +16,13 @@ function formatBytes(bytes: number): string {
     i++;
   }
   return `${value.toFixed(1)} ${units[i]}`;
+}
+
+function thumbnailSrc(image: ImageFile): string {
+  const base = getFullUrl(image.urls?.webp || image.urls?.original || "");
+  if (!base) return "";
+  if ((image.format || "").toLowerCase() === "gif") return base;
+  return toCdnCgiImageUrl(base, { width: 128, quality: 75, format: "auto", fit: "scale-down" });
 }
 
 function formatDate(iso: string): string {
@@ -90,7 +98,7 @@ export default function ImageListView({
                     <div className="flex items-center gap-3 min-w-[220px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={getFullUrl(image.urls?.original || "")}
+                        src={thumbnailSrc(image)}
                         alt={image.originalName}
                         className="w-14 h-14 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
                         loading="lazy"
