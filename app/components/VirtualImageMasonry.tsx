@@ -41,6 +41,8 @@ export interface VirtualImageMasonryProps {
   selectable?: boolean;
   selectedIds?: Set<string>;
   onToggleSelect?: (id: string) => void;
+  /** 手动指定网格列数（覆盖自动计算），用于"大小调节"滑块 */
+  lanesOverride?: number;
 }
 
 interface VirtualImageMasonryInnerProps extends Omit<VirtualImageMasonryProps, 'layoutKey'> {
@@ -160,6 +162,7 @@ export default function VirtualImageMasonry({
   selectable = false,
   selectedIds,
   onToggleSelect,
+  lanesOverride,
 }: VirtualImageMasonryProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -196,7 +199,7 @@ export default function VirtualImageMasonry({
     });
   }, [containerWidth, layoutKey]);
 
-  const lanes = useMemo(() => getLaneCount(containerWidth), [containerWidth]);
+  const lanes = useMemo(() => (lanesOverride && lanesOverride >= 1 ? lanesOverride : getLaneCount(containerWidth)), [containerWidth, lanesOverride]);
   const columnWidth = useMemo(() => getColumnWidth(containerWidth, lanes), [containerWidth, lanes]);
 
   const isReady = containerWidth > 0 && scrollMargin !== null;

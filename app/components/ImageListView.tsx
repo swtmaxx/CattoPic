@@ -46,6 +46,8 @@ interface ImageListViewProps {
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
+  /** 缩略图尺寸（px），用于"大小调节"滑块 */
+  thumbSize?: number;
 }
 
 export default function ImageListView({
@@ -58,6 +60,7 @@ export default function ImageListView({
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
+  thumbSize = 56,
 }: ImageListViewProps) {
   return (
     <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 overflow-hidden">
@@ -101,7 +104,8 @@ export default function ImageListView({
                       <img
                         src={thumbnailSrc(image)}
                         alt={image.originalName}
-                        className="w-14 h-14 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                        className="object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                        style={{ width: thumbSize, height: thumbSize }}
                         loading="lazy"
                       />
                       <div className="min-w-0">

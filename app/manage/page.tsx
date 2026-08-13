@@ -42,6 +42,8 @@ export default function Manage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"grid" | "list">("grid");
+  const [gridColumns, setGridColumns] = useState(4);
+  const [listThumbSize, setListThumbSize] = useState(56);
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -277,19 +279,44 @@ export default function Manage() {
             </button>
           )}
         </div>
-        <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
-          <button
-            onClick={() => setView("grid")}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${view === "grid" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-          >
-            网格
-          </button>
-          <button
-            onClick={() => setView("list")}
-            className={`px-4 py-3 text-sm font-medium transition-colors ${view === "list" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
-          >
-            列表
-          </button>
+        <div className="flex items-center gap-3 flex-wrap">
+          <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
+            <button
+              onClick={() => setView("grid")}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${view === "grid" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+            >
+              网格
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={`px-4 py-3 text-sm font-medium transition-colors ${view === "list" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+            >
+              列表
+            </button>
+          </div>
+
+          {/* 大小调节滑块：网格=列数，列表=缩略图尺寸 */}
+          <div className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-gray-200/80 dark:border-gray-700 px-4 py-2.5 shadow-sm">
+            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+              {view === "grid" ? "卡片大小" : "缩略图"}
+            </span>
+            <input
+              type="range"
+              min={view === "grid" ? 1 : 40}
+              max={view === "grid" ? 6 : 120}
+              step={view === "grid" ? 1 : 8}
+              value={view === "grid" ? gridColumns : listThumbSize}
+              onChange={(e) => {
+                const v = Number(e.target.value);
+                if (view === "grid") setGridColumns(v);
+                else setListThumbSize(v);
+              }}
+              className="w-32 accent-indigo-500"
+            />
+            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-300 w-14 text-right whitespace-nowrap">
+              {view === "grid" ? `${gridColumns} 列` : `${listThumbSize}px`}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -352,6 +379,7 @@ export default function Manage() {
                   selectable
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
+                  lanesOverride={gridColumns}
                 />
               ) : (
                 <ImageListView
@@ -364,6 +392,7 @@ export default function Manage() {
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   fetchNextPage={fetchNextPage}
+                  thumbSize={listThumbSize}
                 />
               )}
               {isFetchingNextPage && (
