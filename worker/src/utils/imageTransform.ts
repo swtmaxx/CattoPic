@@ -82,7 +82,8 @@ export function buildImageUrls(params: {
 
   const formatLower = (image.format || '').toLowerCase();
   const isGif = formatLower === 'gif';
-  if (isGif) {
+  const isSvg = formatLower === 'svg';
+  if (isGif || isSvg) {
     return { original: originalUrl, webp: '', avif: '' };
   }
 

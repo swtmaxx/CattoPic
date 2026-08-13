@@ -19,7 +19,7 @@ const DEFAULT_COMPRESSION: Required<CompressionOptions> = {
 const DEFAULT_CONFIG: Config = {
   maxUploadCount: 50,
   maxFileSize: 70 * 1024 * 1024, // 70MB
-  supportedFormats: ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif'],
+  supportedFormats: ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif', 'svg'],
   imageQuality: 80,
   compression: DEFAULT_COMPRESSION,
 };

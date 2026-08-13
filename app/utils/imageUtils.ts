@@ -15,6 +15,7 @@ export const getFormatLabel = (format: string): string => {
     webp: "WebP",
     gif: "GIF",
     avif: "AVIF",
+    svg: "SVG",
   };
   return formatMap[format.toLowerCase()] || format.toUpperCase();
 };

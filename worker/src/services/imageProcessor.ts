@@ -43,7 +43,35 @@ export class ImageProcessor {
       }
     }
 
+    // SVG: text-based format. Allow BOM/whitespace and optional XML declaration.
+    const head = new Uint8Array(data.slice(0, 1024));
+    let text = '';
+    for (let i = 0; i < head.length; i++) text += String.fromCharCode(head[i]);
+    text = text.replace(/^\uFEFF/, '').trimStart();
+    if (text.startsWith('<svg') || text.startsWith('<?xml')) {
+      return 'svg';
+    }
+
     return 'unknown';
+  }
+
+  private static getSvgDimensions(data: ArrayBuffer): { width: number; height: number } {
+    const head = new Uint8Array(data.slice(0, 4096));
+    let text = '';
+    for (let i = 0; i < head.length; i++) text += String.fromCharCode(head[i]);
+
+    const widthMatch = text.match(/width\s*=\s*["'](\d+(?:\.\d+)?)["']/i);
+    const heightMatch = text.match(/height\s*=\s*["'](\d+(?:\.\d+)?)["']/i);
+    if (widthMatch && heightMatch) {
+      return { width: Math.round(parseFloat(widthMatch[1])), height: Math.round(parseFloat(heightMatch[1])) };
+    }
+
+    const viewBoxMatch = text.match(/viewBox\s*=\s*["']\s*[\d.\-]+\s+[\d.\-]+\s+(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)["']/i);
+    if (viewBoxMatch) {
+      return { width: Math.round(parseFloat(viewBoxMatch[1])), height: Math.round(parseFloat(viewBoxMatch[2])) };
+    }
+
+    return { width: 1920, height: 1080 };
   }
 
   // Get image dimensions (basic implementation for JPEG and PNG)
@@ -62,6 +90,8 @@ export class ImageProcessor {
         return this.getWebpDimensions(bytes);
       case 'avif':
         return this.getAvifDimensions(bytes);
+      case 'svg':
+        return this.getSvgDimensions(data);
       default:
         // Default fallback for unknown formats
         return { width: 1920, height: 1080 };
@@ -206,7 +236,8 @@ export class ImageProcessor {
       png: 'image/png',
       gif: 'image/gif',
       webp: 'image/webp',
-      avif: 'image/avif'
+      avif: 'image/avif',
+      svg: 'image/svg+xml'
     };
     return types[format] || 'application/octet-stream';
   }
@@ -219,14 +250,15 @@ export class ImageProcessor {
       png: 'png',
       gif: 'gif',
       webp: 'webp',
-      avif: 'avif'
+      avif: 'avif',
+      svg: 'svg'
     };
     return extensions[format] || format;
   }
 
   // Check if format is supported
   static isSupportedFormat(format: string): boolean {
-    const supported = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif'];
+    const supported = ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif', 'svg'];
     return supported.includes(format.toLowerCase());
   }
 

@@ -76,6 +76,7 @@ const ImageCard = React.memo(function ImageCard({
 
   // 使用 useMemo 缓存计算结果
   const isGif = useMemo(() => image.format.toLowerCase() === "gif", [image.format]);
+  const isSvg = useMemo(() => image.format.toLowerCase() === "svg", [image.format]);
   const aspectRatio = useMemo(() => {
     if (image.width > 0 && image.height > 0) {
       return `${image.width} / ${image.height}`;
@@ -85,7 +86,7 @@ const ImageCard = React.memo(function ImageCard({
 
   const imageSrc = useMemo(() => {
     const base = getFullUrl(image.urls?.webp || image.urls?.original || '');
-    if (!base || isGif) return base;
+    if (!base || isGif || isSvg) return base;
 
     // Request a resized thumbnail for smoother scrolling (less decode + bandwidth).
     // Use 2x to keep it crisp on high-DPI displays.
@@ -269,8 +270,8 @@ const ImageCard = React.memo(function ImageCard({
           className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900 dark:to-gray-800 w-full"
           style={{ aspectRatio }}
         >
-          {isGif ? (
-            // Use img tag for GIFs to ensure animation plays
+          {isGif || isSvg ? (
+            // Use img tag for GIFs/SVG (GIF animation, SVG can't go through Next Image)
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc}

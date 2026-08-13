@@ -21,7 +21,8 @@ function formatBytes(bytes: number): string {
 function thumbnailSrc(image: ImageFile): string {
   const base = getFullUrl(image.urls?.webp || image.urls?.original || "");
   if (!base) return "";
-  if ((image.format || "").toLowerCase() === "gif") return base;
+  const fmt = (image.format || "").toLowerCase();
+  if (fmt === "gif" || fmt === "svg") return base;
   return toCdnCgiImageUrl(base, { width: 128, quality: 75, format: "auto", fit: "scale-down" });
 }
 

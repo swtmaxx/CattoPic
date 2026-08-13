@@ -134,6 +134,8 @@ const ImageSidebar = React.memo(function ImageSidebar({
       const imageSrc = (() => {
         const base = getFullUrl(result.urls?.webp || result.urls?.original || '');
         if (!base) return '';
+        const isSvg = (result.format || '').toLowerCase() === 'svg';
+        if (isSvg) return base;
         const requestWidth = Math.max(1, Math.ceil(thumbWidth * 2));
         return toCdnCgiImageUrl(base, { width: requestWidth, quality: 70, format: 'auto', fit: 'scale-down' });
       })();

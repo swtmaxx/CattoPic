@@ -82,7 +82,8 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
     const isGif = imageInfo.format === 'gif';
     const isWebp = imageInfo.format === 'webp';
     const isAvif = imageInfo.format === 'avif';
-    const shouldSkipProcessing = isGif || isWebp || isAvif;
+    const isSvg = imageInfo.format === 'svg';
+    const shouldSkipProcessing = isGif || isWebp || isAvif || isSvg;
     let webpSize = 0;
     let avifSize = 0;
 
