@@ -1,0 +1,39 @@
+# CattoPic 生产配置（自动部署使用）
+# 该文件包含资源 ID（不含密钥），已提交到仓库供 CI 部署使用。
+# 本地开发仍使用被 gitignore 的 wrangler.toml。
+
+name = 'cattopic-worker'
+main = 'src/index.ts'
+compatibility_date = '2025-12-10'
+compatibility_flags = ['nodejs_compat']
+
+[vars]
+ENVIRONMENT = 'production'
+R2_PUBLIC_URL = 'https://r2.201116.xyz'
+USE_QUEUE = 'false'
+
+[images]
+binding = "IMAGES"
+
+[[r2_buckets]]
+binding = 'R2_BUCKET'
+bucket_name = 'cattopic-r2'
+
+[[d1_databases]]
+binding = 'DB'
+database_name = 'cattopic-d1'
+database_id = '1bc42f5b-58ff-46b8-bc5a-28ce2d6eed73'
+
+[[kv_namespaces]]
+binding = "CACHE_KV"
+id = '54e3b77c54624885b8898c01d907f322'
+
+[triggers]
+crons = ['0 * * * *']
+
+[observability]
+[observability.logs]
+enabled = true
+head_sampling_rate = 1
+invocation_logs = true
+persist = true

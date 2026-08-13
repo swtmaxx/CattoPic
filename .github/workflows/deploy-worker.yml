@@ -37,11 +37,15 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: worker
 
-      - name: Generate wrangler.toml
+      # 生产配置直接使用仓库内的 wrangler.prod.toml，不再依赖 WRANGLER_TOML Secret。
+      # 若未来需调整资源 ID / 公开域名，直接修改该文件并推送即可。
+      - name: Verify production config
         working-directory: worker
-        env:
-          WRANGLER_TOML_CONTENT: ${{ secrets.WRANGLER_TOML }}
-        run: printf '%s\n' "$WRANGLER_TOML_CONTENT" > wrangler.toml
+        run: |
+          test -f wrangler.prod.toml || { echo "::error::wrangler.prod.toml missing"; exit 1; }
+          grep -q "^main[[:space:]]*=" wrangler.prod.toml || { echo "::error::wrangler.prod.toml is missing 'main'"; exit 1; }
+          grep -q "^name[[:space:]]*=" wrangler.prod.toml || { echo "::error::wrangler.prod.toml is missing 'name'"; exit 1; }
+          echo "✅ Production config OK"
 
       - name: Typecheck Worker
         working-directory: worker
@@ -50,5 +54,5 @@ jobs:
       - name: Deploy to Cloudflare
         working-directory: worker
         run: |
-          pnpm wrangler deploy
+          pnpm wrangler deploy --config wrangler.prod.toml
           echo "✅ Deploy completed"
