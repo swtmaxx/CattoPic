@@ -9,7 +9,7 @@ compatibility_flags = ['nodejs_compat']
 
 [vars]
 ENVIRONMENT = 'production'
-R2_PUBLIC_URL = 'https://r2.201116.xyz'
+R2_PUBLIC_URL = 'https://img.201116.xyz'
 USE_QUEUE = 'false'
 
 [images]
