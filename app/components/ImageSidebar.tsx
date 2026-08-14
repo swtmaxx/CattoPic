@@ -7,8 +7,10 @@ import { useVirtualizer } from '@tanstack/react-virtual';
 import ImageModal from "../components/ImageModal";
 import { getFullUrl } from "../utils/baseUrl";
 import { toCdnCgiImageUrl } from "../utils/cdnImage";
-import { ImageIcon, Cross1Icon, ExclamationTriangleIcon } from "./ui/icons";
+import { ImageIcon, Cross1Icon, ExclamationTriangleIcon, CopyIcon } from "./ui/icons";
 import { ImageData } from "../types/image";
+import { showToast } from "./ToastContainer";
+import { copyToClipboard } from "../utils/copyImageUtils";
 
 interface ImageSidebarProps {
   isOpen: boolean;
@@ -113,6 +115,24 @@ const ImageSidebar = React.memo(function ImageSidebar({
   const handleTabAll = useCallback(() => setTab("all"), []);
   const handleTabSuccess = useCallback(() => setTab("success"), []);
   const handleTabError = useCallback(() => setTab("error"), []);
+
+  const handleCopyAllLinks = useCallback(async () => {
+    if (successResults.length === 0) {
+      showToast("暂无成功图片可复制", "error");
+      return;
+    }
+
+    const links = successResults
+      .map((result) => getFullUrl(result.urls?.webp || result.urls?.original || ""))
+      .join("\n");
+
+    const copied = await copyToClipboard(links);
+    if (copied) {
+      showToast(`已复制 ${successResults.length} 条链接`, "success");
+    } else {
+      showToast("复制失败", "error");
+    }
+  }, [successResults]);
 
   const UploadResultTile = useMemo(() => {
     return React.memo(function UploadResultTile({
@@ -219,12 +239,22 @@ const ImageSidebar = React.memo(function ImageSidebar({
                 <ImageIcon className="h-5 w-5 mr-2 text-white opacity-90" />
                 上传结果 ({results.length})
               </h2>
-              <button
-                onClick={onClose}
-                className="p-2 rounded-full hover:bg-white/10 transition-colors"
-              >
-                <Cross1Icon className="h-5 w-5" />
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => void handleCopyAllLinks()}
+                  className="px-3 py-2 rounded-lg bg-white/10 hover:bg-white/20 transition-colors text-sm flex items-center gap-1.5"
+                  title="复制全部成功图片的链接"
+                >
+                  <CopyIcon className="h-4 w-4" />
+                  复制全部链接
+                </button>
+                <button
+                  onClick={onClose}
+                  className="p-2 rounded-full hover:bg-white/10 transition-colors"
+                >
+                  <Cross1Icon className="h-5 w-5" />
+                </button>
+              </div>
             </div>
 
             {/* 标签切换 */}

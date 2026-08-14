@@ -140,6 +140,24 @@ export default function Manage() {
     }
   }, [images]);
 
+  const handleCopyAllUrls = useCallback(async () => {
+    if (images.length === 0) {
+      showToast("暂无图片可复制", "error");
+      return;
+    }
+
+    const urls = images
+      .map((image) => getFullUrl(image.urls?.webp || image.urls?.original || ""))
+      .join("\n");
+
+    const success = await copyToClipboard(urls);
+    if (success) {
+      showToast(`已复制 ${images.length} 条链接`, "success");
+    } else {
+      showToast("复制失败", "error");
+    }
+  }, [images]);
+
   const removeSelectedFromCache = useCallback(() => {
     queryClient.setQueryData<ImageFile[]>(queryKeys.images.recentUploads(), (old) => {
       if (!Array.isArray(old)) return old;
@@ -303,6 +321,15 @@ export default function Manage() {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => void handleCopyAllUrls()}
+            disabled={images.length === 0}
+            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
+            title="复制当前列表全部图片的链接"
+          >
+            <CopyIcon className="h-4 w-4" />
+            复制全部链接
+          </button>
           <button
             onClick={() => void handleCopyAllMarkdown()}
             disabled={images.length === 0}
