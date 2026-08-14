@@ -58,7 +58,7 @@
 }
 
 @utility card {
-  @apply bg-light-bg-secondary border border-gray-200/80 rounded-2xl shadow-[0_2px_12px_-3px_rgba(0,0,0,0.08),0_4px_24px_-8px_rgba(0,0,0,0.05)] backdrop-blur-xs dark:bg-dark-bg-secondary dark:border-dark-border dark:shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300;
+  @apply bg-light-bg-secondary border border-gray-200/80 rounded-2xl shadow-[0_2px_12px_-3px_rgba(0,0,0,0.08),0_4px_24px_-8px_rgba(0,0,0,0.05)] dark:bg-dark-bg-secondary dark:border-dark-border dark:shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] ring-1 ring-black/[0.03] dark:ring-white/[0.05] transition-all duration-300;
 }
 
 @utility btn-primary {

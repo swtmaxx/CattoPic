@@ -16,10 +16,12 @@ import Header from "../components/Header";
 import ToastContainer, { showToast } from "../components/ToastContainer";
 import TagManagementModal from "../components/TagManagementModal";
 import RandomApiModal from "../components/RandomApiModal";
-import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, MagnifyingGlassIcon, Cross2Icon } from "../components/ui/icons";
+import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, MagnifyingGlassIcon, Cross2Icon, CopyIcon } from "../components/ui/icons";
 import { useInfiniteImages, useDeleteImage, useUpdateImage } from "../hooks/useImages";
 import { api } from "../utils/request";
 import { queryKeys } from "../lib/queryKeys";
+import { copyToClipboard, buildMarkdownLink } from "../utils/copyImageUtils";
+import { getFullUrl } from "../utils/baseUrl";
 
 export default function Manage() {
   useTheme();
@@ -116,6 +118,27 @@ export default function Manage() {
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
+
+  const handleCopyAllMarkdown = useCallback(async () => {
+    if (images.length === 0) {
+      showToast("暂无图片可复制", "error");
+      return;
+    }
+
+    const markdown = images
+      .map((image) => {
+        const url = getFullUrl(image.urls?.webp || image.urls?.original || "");
+        return buildMarkdownLink(url, image.originalName);
+      })
+      .join("\n");
+
+    const success = await copyToClipboard(markdown);
+    if (success) {
+      showToast(`已复制 ${images.length} 张图片的 Markdown 链接`, "success");
+    } else {
+      showToast("复制失败", "error");
+    }
+  }, [images]);
 
   const removeSelectedFromCache = useCallback(() => {
     queryClient.setQueryData<ImageFile[]>(queryKeys.images.recentUploads(), (old) => {
@@ -280,6 +303,15 @@ export default function Manage() {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => void handleCopyAllMarkdown()}
+            disabled={images.length === 0}
+            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
+            title="复制当前列表全部图片的 Markdown 链接"
+          >
+            <CopyIcon className="h-4 w-4" />
+            复制全部 Markdown
+          </button>
           <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
             <button
               onClick={() => setView("grid")}

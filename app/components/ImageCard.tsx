@@ -77,6 +77,7 @@ const ImageCard = React.memo(function ImageCard({
   // 使用 useMemo 缓存计算结果
   const isGif = useMemo(() => image.format.toLowerCase() === "gif", [image.format]);
   const isSvg = useMemo(() => image.format.toLowerCase() === "svg", [image.format]);
+  const isAvif = useMemo(() => image.format.toLowerCase() === "avif", [image.format]);
   const aspectRatio = useMemo(() => {
     if (image.width > 0 && image.height > 0) {
       return `${image.width} / ${image.height}`;
@@ -86,13 +87,13 @@ const ImageCard = React.memo(function ImageCard({
 
   const imageSrc = useMemo(() => {
     const base = getFullUrl(image.urls?.webp || image.urls?.original || '');
-    if (!base || isGif || isSvg) return base;
+    if (!base || isGif || isSvg || isAvif) return base;
 
     // Request a resized thumbnail for smoother scrolling (less decode + bandwidth).
     // Use 2x to keep it crisp on high-DPI displays.
     const requestWidth = Math.max(1, Math.ceil(displayWidth * 2));
     return toCdnCgiImageUrl(base, { width: requestWidth, quality: 75, format: 'auto', fit: 'scale-down' });
-  }, [displayWidth, image.urls, isGif]);
+  }, [displayWidth, image.urls, isGif, isSvg, isAvif]);
 
   const handleOpen = useCallback(() => {
     onClick(image);
@@ -270,8 +271,8 @@ const ImageCard = React.memo(function ImageCard({
           className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900 dark:to-gray-800 w-full"
           style={{ aspectRatio }}
         >
-          {isGif || isSvg ? (
-            // Use img tag for GIFs/SVG (GIF animation, SVG can't go through Next Image)
+          {isGif || isSvg || isAvif ? (
+            // Use img tag for GIF/SVG/AVIF (animation, SVG, and formats that cdn-cgi cannot transform)
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={imageSrc}
@@ -321,13 +322,13 @@ const ImageCard = React.memo(function ImageCard({
                 </button>
               )}
               <span
-                className={`text-xs font-medium px-2 py-1 rounded-full backdrop-blur-xs ${
+                className={`text-xs font-medium px-2 py-1 rounded-full ${
                   isGif ? "bg-green-500/70" : "bg-blue-500/70"
                 }`}
               >
                 {getFormatLabel(image.format)}
               </span>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70 backdrop-blur-xs">
+              <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70">
                 {getOrientationLabel(image.orientation)}
               </span>
             </div>
@@ -336,7 +337,7 @@ const ImageCard = React.memo(function ImageCard({
               initial={{ opacity: 0 }}
               animate={{ opacity: isHovered ? 1 : 0 }}
               onClick={handleQuickCopy}
-              className="p-1.5 rounded-full bg-white/20 backdrop-blur-xs hover:bg-white/40 transition-colors"
+              className="p-1.5 rounded-full bg-white/20 hover:bg-white/40 transition-colors"
               title="复制URL"
             >
               {copyStatus === "idle" && (

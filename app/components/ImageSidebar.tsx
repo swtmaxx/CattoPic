@@ -134,8 +134,8 @@ const ImageSidebar = React.memo(function ImageSidebar({
       const imageSrc = (() => {
         const base = getFullUrl(result.urls?.webp || result.urls?.original || '');
         if (!base) return '';
-        const isSvg = (result.format || '').toLowerCase() === 'svg';
-        if (isSvg) return base;
+        const fmt = (result.format || '').toLowerCase();
+        if (fmt === 'svg' || fmt === 'avif') return base;
         const requestWidth = Math.max(1, Math.ceil(thumbWidth * 2));
         return toCdnCgiImageUrl(base, { width: requestWidth, quality: 70, format: 'auto', fit: 'scale-down' });
       })();
@@ -350,7 +350,7 @@ const ImageSidebar = React.memo(function ImageSidebar({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 bg-black/20 dark:bg-black/50 backdrop-blur-xs z-20 sm:block hidden"
+            className="fixed inset-0 bg-black/20 dark:bg-black/50 z-20 sm:block hidden"
             onClick={onClose}
           />
         )}

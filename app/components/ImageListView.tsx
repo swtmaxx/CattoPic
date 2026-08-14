@@ -22,7 +22,7 @@ function thumbnailSrc(image: ImageFile): string {
   const base = getFullUrl(image.urls?.webp || image.urls?.original || "");
   if (!base) return "";
   const fmt = (image.format || "").toLowerCase();
-  if (fmt === "gif" || fmt === "svg") return base;
+  if (fmt === "gif" || fmt === "svg" || fmt === "avif") return base;
   return toCdnCgiImageUrl(base, { width: 128, quality: 75, format: "auto", fit: "scale-down" });
 }
 

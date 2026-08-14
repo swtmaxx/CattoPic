@@ -23,7 +23,6 @@ export const ImagePreview = ({
   quality = 20 
 }: ImagePreviewProps) => {
   const [isLoading, setIsLoading] = useState(true);
-  const [blurDataUrl, setBlurDataUrl] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
   // 判断图片类型并获取适当的URL
@@ -36,39 +35,22 @@ export const ImagePreview = ({
   const format = isImageFile 
     ? (image as ImageFile).format?.toLowerCase() 
     : (image as ImageData).format?.toLowerCase() || '';
+  const isGif = format === "gif";
+  const isSvg = format === "svg";
+  const isAvif = format === "avif";
 
   const handleLoadComplete = useCallback(() => {
     setIsLoading(false);
     onLoad?.();
   }, [onLoad]);
 
-  // 生成模糊占位图
-  const generateBlurPlaceholder = useCallback(() => {
-    return `data:image/svg+xml;base64,${Buffer.from(
-      `<svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
-        <filter id="b" color-interpolation-filters="sRGB">
-          <feGaussianBlur stdDeviation="12" />
-        </filter>
-        <rect width="100%" height="100%" fill="#f3f4f6"/>
-        <rect width="100%" height="100%" filter="url(#b)" opacity="0.5"/>
-      </svg>`
-    ).toString('base64')}`;
-  }, []);
-
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsLoading(true);
-     
     setError(null);
 
     const loadImage = async () => {
       try {
-        // Generate placeholder for non-GIF images
-        if (format !== "gif") {
-          const placeholder = generateBlurPlaceholder();
-          setBlurDataUrl(placeholder);
-        }
-
         // Add to queue with priority flag
         if (!imageQueue.isPreloaded(imageUrl)) {
           imageQueue.add(imageUrl, priority);
@@ -80,10 +62,7 @@ export const ImagePreview = ({
     };
 
     loadImage();
-    return () => {
-      setBlurDataUrl(null);
-    };
-  }, [imageUrl, priority, format, generateBlurPlaceholder]);
+  }, [imageUrl, priority]);
 
   if (error) {
     return (
@@ -93,7 +72,7 @@ export const ImagePreview = ({
     );
   }
 
-  if (format === "gif") {
+  if (isGif || isSvg || isAvif) {
     return (
       <div className="h-full w-full flex items-center justify-center">
         {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -112,7 +91,7 @@ export const ImagePreview = ({
           download={image.originalName}
           className="absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors duration-300"
           onClick={(e) => e.stopPropagation()}
-          title="下载GIF"
+          title="下载图片"
         >
           <DownloadIcon className="h-5 w-5" />
         </a>
@@ -133,8 +112,6 @@ export const ImagePreview = ({
         priority={priority}
         loading={priority ? "eager" : "lazy"}
         quality={quality}
-        placeholder={blurDataUrl ? "blur" : "empty"}
-        blurDataURL={blurDataUrl || undefined}
         onLoadingComplete={handleLoadComplete}
         onError={() => setError("Failed to load image")}
       />

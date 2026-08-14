@@ -119,7 +119,6 @@ export default function PreviewSidebar({
           exit={{ x: "100%" }}
           transition={{ type: "spring", damping: 30, stiffness: 300 }}
           className="fixed top-0 right-0 w-full sm:w-96 h-full bg-indigo-100/10 dark:bg-slate-800/20 shadow-xl z-30 border-l border-slate-200/50 dark:border-slate-700/50 overflow-hidden flex flex-col"
-          style={{ backdropFilter: 'blur(12px)' }}
         >
           {/* 侧边栏头部 */}
           <div className={`flex items-center justify-between p-4 border-b border-slate-200/50 dark:border-slate-700/50 ${getHeaderBgClass(phase, errorCount)} text-white transition-colors duration-300`}>
