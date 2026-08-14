@@ -1,5 +1,5 @@
 import type { Context } from 'hono';
-import type { Env, Config, AdminStats, CompressionOptions } from '../types';
+import type { Env, Config, AdminStats, CompressionOptions, ThemeConfig } from '../types';
 import { MetadataService } from '../services/metadata';
 import { buildImageUrls } from '../utils/imageTransform';
 import { CacheService, CacheKeys, CACHE_TTL } from '../services/cache';
@@ -7,6 +7,11 @@ import { processPendingDeletionJobs } from '../services/deletion';
 import { successResponse, errorResponse } from '../utils/response';
 
 // Default compression options (global defaults used by the upload handler)
+const DEFAULT_THEME: ThemeConfig = {
+  accent: 'green',
+  mode: 'system',
+};
+
 const DEFAULT_COMPRESSION: Required<CompressionOptions> = {
   quality: 90,
   maxWidth: 0,
@@ -23,6 +28,7 @@ const DEFAULT_CONFIG: Config = {
   supportedFormats: ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif', 'svg'],
   imageQuality: 80,
   compression: DEFAULT_COMPRESSION,
+  theme: DEFAULT_THEME,
 };
 
 // Load effective config (D1 config table merged with defaults).
@@ -48,7 +54,21 @@ export async function getEffectiveConfig(db: D1Database): Promise<Config> {
   const compression = config.compression as Partial<CompressionOptions> | undefined;
   config.compression = { ...DEFAULT_COMPRESSION, ...(compression || {}) };
 
+  // Merge theme defaults so partial configs stay valid
+  const theme = config.theme as Partial<ThemeConfig> | undefined;
+  config.theme = { ...DEFAULT_THEME, ...(theme || {}) };
+
   return config as unknown as Config;
+}
+
+function sanitizeTheme(input: unknown): ThemeConfig | null {
+  if (!input || typeof input !== 'object') return null;
+  const raw = input as Record<string, unknown>;
+  const accents = ['green', 'blue', 'violet', 'red', 'orange'];
+  const modes = ['system', 'light', 'dark'];
+  if (typeof raw.accent !== 'string' || !accents.includes(raw.accent)) return null;
+  if (typeof raw.mode !== 'string' || !modes.includes(raw.mode)) return null;
+  return { accent: raw.accent as ThemeConfig['accent'], mode: raw.mode as ThemeConfig['mode'] };
 }
 
 function sanitizeCompression(input: unknown): Required<CompressionOptions> | null {
@@ -111,6 +131,15 @@ export async function updateConfigHandler(c: Context<{ Bindings: Env }>): Promis
     }
 
     const statements: D1PreparedStatement[] = [];
+
+    if (body.theme !== undefined) {
+      const theme = sanitizeTheme(body.theme);
+      if (!theme) return errorResponse('theme 配置无效');
+      statements.push(
+        c.env.DB.prepare(`INSERT OR REPLACE INTO config (key, value) VALUES ('theme', ?)`)
+          .bind(JSON.stringify(theme))
+      );
+    }
 
     if (body.compression !== undefined) {
       const compression = sanitizeCompression(body.compression);

@@ -34,6 +34,7 @@ import {
   Copy as CopyIcon,
   Move as TransformIcon,
   RotateCw as ReloadIcon,
+  RotateCcw as RotateCcwIcon,
   Moon as MoonIcon,
   Sun as SunIcon,
   Menu as HamburgerMenuIcon,
@@ -63,7 +64,8 @@ import {
   Code as CodeIcon,
   Archive as ArchiveIcon,
   Package as PackageIcon,
-  Folder as FolderIcon
+  Folder as FolderIcon,
+  LayoutDashboard as LayoutDashboardIcon
 } from 'lucide-react';
 
 export {
@@ -102,6 +104,7 @@ export {
   CopyIcon, // 复制图标
   TransformIcon, // 变换图标
   ReloadIcon, // 重新加载图标
+  RotateCcwIcon, // 重试图标
   MoonIcon, // 月亮/夜间模式图标
   SunIcon, // 太阳/日间模式图标
   HamburgerMenuIcon, // 菜单图标
@@ -131,7 +134,8 @@ export {
   CodeIcon, // 代码图标 - Markdown格式
   ArchiveIcon, // 归档图标 - 压缩格式
   PackageIcon, // 包装图标 - 打包格式
-  FolderIcon // 文件夹图标 - 文件夹上传
+  FolderIcon, // 文件夹图标 - 文件夹上传
+  LayoutDashboardIcon // 仪表盘图标 - 后台概览
 };
 
 // 状态图标 - 为不同类型的状态消息提供图标

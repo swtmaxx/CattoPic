@@ -158,6 +158,12 @@ export interface Tag {
   count: number;
 }
 
+// Theme config
+export interface ThemeConfig {
+  accent: 'green' | 'blue' | 'violet' | 'red' | 'orange';
+  mode: 'system' | 'light' | 'dark';
+}
+
 // Config types
 export interface Config {
   maxUploadCount: number;
@@ -165,6 +171,7 @@ export interface Config {
   supportedFormats: string[];
   imageQuality: number;
   compression: Required<CompressionOptions>;
+  theme: ThemeConfig;
 }
 
 // Filter types

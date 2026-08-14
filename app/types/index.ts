@@ -133,12 +133,21 @@ export interface CompressionConfig {
   generateAvif: boolean;
 }
 
+export type ThemeAccent = "green" | "blue" | "violet" | "red" | "orange";
+export type ThemeMode = "system" | "light" | "dark";
+
+export interface ThemeConfig {
+  accent: ThemeAccent;
+  mode: ThemeMode;
+}
+
 export interface AdminConfig {
   maxUploadCount: number;
   maxFileSize: number;
   supportedFormats: string[];
   imageQuality: number;
   compression: CompressionConfig;
+  theme: ThemeConfig;
 }
 
 export interface AdminStats {

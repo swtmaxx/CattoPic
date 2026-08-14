@@ -42,14 +42,6 @@ export default function RootLayout({
   return (
     <html lang="zh-CN" className="light">
       <body className={`${inter.className} ${notoSansSC.className} page-bg py-10 transition-colors duration-300 light-mode font-bold`}>
-        {/* 动态背景 */}
-        <div className="animated-bg">
-          <div className="bubble"></div>
-          <div className="bubble"></div>
-          <div className="bubble"></div>
-          <div className="bubble"></div>
-          <div className="bubble"></div>
-        </div>
 
         <QueryProvider>
           {children}

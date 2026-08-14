@@ -16,9 +16,11 @@ interface HeaderProps {
   onLogoutClick?: () => void
   title?: string
   authenticated?: boolean
+  /** 是否显示主题切换按钮（后台框架模式下由外壳提供） */
+  showThemeToggle?: boolean
 }
 
-export default function Header({ onTagManageClick, onRandomApiClick, onLogoutClick, title, authenticated = false }: HeaderProps) {
+export default function Header({ onTagManageClick, onRandomApiClick, onLogoutClick, title, authenticated = false, showThemeToggle = true }: HeaderProps) {
   const { isDarkMode, toggleTheme } = useTheme()
   const pathname = usePathname()
   const queryClient = useQueryClient()
@@ -104,13 +106,15 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
           </button>
         )}
 
-        <button onClick={toggleTheme} className="btn-icon">
-          {isDarkMode ? (
-            <SunIcon className="h-6 w-6 text-amber-500" />
-          ) : (
-            <MoonIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
-          )}
-        </button>
+        {showThemeToggle && (
+          <button onClick={toggleTheme} className="btn-icon">
+            {isDarkMode ? (
+              <SunIcon className="h-6 w-6 text-amber-500" />
+            ) : (
+              <MoonIcon className="h-6 w-6 text-gray-700 dark:text-gray-300" />
+            )}
+          </button>
+        )}
       </div>
     </div>
   )

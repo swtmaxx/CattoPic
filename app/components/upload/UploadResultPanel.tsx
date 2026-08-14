@@ -3,16 +3,17 @@
 import { useMemo, useState } from 'react'
 import { CheckIcon, CopyIcon, ImageIcon, Cross1Icon } from '../ui/icons'
 import { getFullUrl } from '../../utils/baseUrl'
-import { copyToClipboard } from '../../utils/copyImageUtils'
+import { copyToClipboard, buildMarkdownLink } from '../../utils/copyImageUtils'
 import { showToast } from '../ToastContainer'
 import type { UploadResult } from '../../types'
 
-type LinkFormat = 'original' | 'webp' | 'avif'
+type LinkFormat = 'original' | 'webp' | 'avif' | 'markdown'
 
 const FORMAT_LABELS: Record<LinkFormat, string> = {
   original: '原图',
   webp: 'WebP',
   avif: 'AVIF',
+  markdown: 'Markdown',
 }
 
 interface UploadResultPanelProps {
@@ -38,7 +39,15 @@ export default function UploadResultPanel({ results, onClear }: UploadResultPane
       showToast('暂无成功图片可复制', 'error')
       return
     }
-    const links = successResults.map(resolveUrl).join('\n')
+    const links = successResults
+      .map((result) => {
+        if (format === 'markdown') {
+          const url = getFullUrl(result.urls?.webp || result.urls?.original || '')
+          return buildMarkdownLink(url, result.originalName || '')
+        }
+        return resolveUrl(result)
+      })
+      .join('\n')
     const ok = await copyToClipboard(links)
     if (ok) {
       showToast(`已复制 ${successResults.length} 条${FORMAT_LABELS[format]}链接`, 'success')
@@ -78,7 +87,7 @@ export default function UploadResultPanel({ results, onClear }: UploadResultPane
           <span className="text-sm font-medium text-gray-700 dark:text-gray-300">链接格式：</span>
         </div>
         <div className="flex rounded-lg overflow-hidden border border-gray-200 dark:border-gray-700">
-          {(['original', 'webp', 'avif'] as LinkFormat[]).map((f) => (
+          {(['original', 'webp', 'avif', 'markdown'] as LinkFormat[]).map((f) => (
             <button
               key={f}
               onClick={() => setFormat(f)}

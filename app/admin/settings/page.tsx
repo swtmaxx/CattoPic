@@ -1,13 +1,11 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "../../hooks/useSession";
-import { useTheme } from "../../hooks/useTheme";
 import { api } from "../../utils/request";
-import type { AdminConfig, CompressionConfig } from "../../types";
-import { Spinner, GearIcon, CheckIcon } from "../../components/ui/icons";
+import type { AdminConfig, CompressionConfig, ThemeConfig, ThemeAccent, ThemeMode } from "../../types";
+import { Spinner, CheckIcon } from "../../components/ui/icons";
 import ToastContainer, { showToast } from "../../components/ToastContainer";
 
 const QUALITY_PRESETS = [
@@ -31,6 +29,20 @@ const FORMAT_OPTIONS = [
   { value: "avif", label: "仅 AVIF", desc: "体积更小" },
 ];
 
+const ACCENT_OPTIONS: { value: ThemeAccent; label: string; color: string }[] = [
+  { value: "green", label: "绿色", color: "#22c55e" },
+  { value: "blue", label: "蓝色", color: "#3b82f6" },
+  { value: "violet", label: "紫色", color: "#8b5cf6" },
+  { value: "red", label: "红色", color: "#ef4444" },
+  { value: "orange", label: "橙色", color: "#f97316" },
+];
+
+const MODE_OPTIONS: { value: ThemeMode; label: string }[] = [
+  { value: "system", label: "跟随系统" },
+  { value: "light", label: "浅色" },
+  { value: "dark", label: "深色" },
+];
+
 const DEFAULT_COMPRESSION: CompressionConfig = {
   quality: 90,
   maxWidth: 0,
@@ -40,12 +52,15 @@ const DEFAULT_COMPRESSION: CompressionConfig = {
   generateAvif: true,
 };
 
+const DEFAULT_THEME: ThemeConfig = { accent: "green", mode: "system" };
+
 export default function AdminSettings() {
-  useTheme();
   const router = useRouter();
   const { status, loading } = useSession();
   const [compression, setCompression] = useState<CompressionConfig | null>(null);
+  const [theme, setTheme] = useState<ThemeConfig>(DEFAULT_THEME);
   const [saving, setSaving] = useState(false);
+  const [themeSaving, setThemeSaving] = useState(false);
 
   // 账号设置
   const [currentPassword, setCurrentPassword] = useState("");
@@ -69,6 +84,7 @@ export default function AdminSettings() {
       .then((res) => {
         if (res.success && res.config) {
           setCompression({ ...DEFAULT_COMPRESSION, ...res.config.compression });
+          setTheme({ ...DEFAULT_THEME, ...(res.config.theme || {}) });
         }
       })
       .catch(() => showToast("加载配置失败", "error"));
@@ -79,11 +95,32 @@ export default function AdminSettings() {
     setSaving(true);
     try {
       await api.put<{ success: boolean }>("/api/config", { compression });
-      showToast("配置已保存", "success");
+      showToast("压缩设置已保存", "success");
     } catch {
       showToast("保存失败", "error");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSaveTheme = async () => {
+    setThemeSaving(true);
+    try {
+      await api.put<{ success: boolean }>("/api/config", { theme });
+      showToast("主题设置已保存", "success");
+      document.documentElement.dataset.accent = theme.accent;
+      if (theme.mode !== "system") {
+        document.documentElement.classList.toggle("dark", theme.mode === "dark");
+        try {
+          localStorage.removeItem("theme-override");
+        } catch {
+          // ignore storage errors
+        }
+      }
+    } catch {
+      showToast("保存失败", "error");
+    } finally {
+      setThemeSaving(false);
     }
   };
 
@@ -137,21 +174,77 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto px-6 py-8">
+    <div className="max-w-3xl mx-auto">
       <ToastContainer />
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
-            <GearIcon className="h-7 w-7 text-indigo-500" /> 系统设置
-          </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">全局压缩设置，适用于所有新上传的图片</p>
-        </div>
-        <Link href="/admin" className="px-4 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded-lg font-medium">
-          返回后台
-        </Link>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">系统设置</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">主题、压缩与账号设置</p>
       </div>
 
-      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 space-y-8">
+      {/* 主题设置 */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6">
+        <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">主题设置</h2>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">设置全站主题色与默认深浅模式</p>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">主题色</label>
+          <div className="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            {ACCENT_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setTheme((prev) => ({ ...prev, accent: opt.value }))}
+                className={`p-3 rounded-xl border flex flex-col items-center gap-2 transition-all ${
+                  theme.accent === opt.value
+                    ? "border-indigo-500 ring-2 ring-indigo-500/30"
+                    : "border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600"
+                }`}
+              >
+                <span className="w-8 h-8 rounded-full" style={{ backgroundColor: opt.color }} />
+                <span className="text-xs font-medium text-gray-700 dark:text-gray-200">{opt.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mb-6">
+          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">默认模式</label>
+          <div className="grid grid-cols-3 gap-3">
+            {MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setTheme((prev) => ({ ...prev, mode: opt.value }))}
+                className={`p-3 rounded-xl border text-sm font-medium transition-all ${
+                  theme.mode === opt.value
+                    ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-900/30 ring-2 ring-indigo-500/30 text-indigo-700 dark:text-indigo-300"
+                    : "border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 mt-2">个人仍可在右上角临时切换深浅模式</p>
+        </div>
+
+        <div className="flex justify-end">
+          <button
+            onClick={() => void handleSaveTheme()}
+            disabled={themeSaving}
+            className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-70 transition-colors"
+          >
+            <CheckIcon className="h-4 w-4" />
+            {themeSaving ? "保存中..." : "保存主题设置"}
+          </button>
+        </div>
+      </div>
+
+      {/* 压缩设置 */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-6 mt-6 space-y-8">
+        <div>
+          <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-1">压缩设置</h2>
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">全局压缩设置，适用于所有新上传的图片</p>
+        </div>
+
         {/* 输出格式 */}
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">输出格式</label>
@@ -238,7 +331,7 @@ export default function AdminSettings() {
             {compression.maxWidth > 0 ? `${compression.maxWidth}px` : "原图"}
           </div>
           <button
-            onClick={handleSave}
+            onClick={() => void handleSave()}
             disabled={saving}
             className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-70 transition-colors"
           >
@@ -303,7 +396,7 @@ export default function AdminSettings() {
 
           <div className="flex justify-end">
             <button
-              onClick={handleSaveAccount}
+              onClick={() => void handleSaveAccount()}
               disabled={accountSaving}
               className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-70 transition-colors"
             >

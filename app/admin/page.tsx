@@ -1,10 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSession } from "../hooks/useSession";
-import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/request";
 import type { AdminStats, ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
@@ -14,13 +12,9 @@ import {
   ImageIcon,
   SizeIcon,
   TagIcon,
-  GearIcon,
-  PersonIcon,
   Link1Icon,
 } from "../components/ui/icons";
 import ToastContainer from "../components/ToastContainer";
-import { showToast } from "../components/ToastContainer";
-import { useQueryClient } from "@tanstack/react-query";
 
 function toImageFile(img: AdminStats["recentUploads"][number]): ImageFile {
   return {
@@ -65,7 +59,7 @@ function StatCard({ label, value, icon, accent }: { label: string; value: string
   );
 }
 
-function BarList({ data, label, color }: { data: Array<{ name?: string; format?: string; orientation?: string; date?: string; count: number }>; label: (item: { name?: string; format?: string; orientation?: string; date?: string; count: number }) => string; color: string }) {
+function BarList({ data, label, color }: { data: Array<{ name?: string; format?: string; date?: string; count: number }>; label: (item: { name?: string; format?: string; date?: string; count: number }) => string; color: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   if (data.length === 0) {
     return <div className="text-sm text-gray-400 py-4 text-center">暂无数据</div>;
@@ -86,10 +80,8 @@ function BarList({ data, label, color }: { data: Array<{ name?: string; format?:
 }
 
 export default function AdminDashboard() {
-  useTheme();
   const router = useRouter();
-  const queryClient = useQueryClient();
-  const { status, loading, logout } = useSession();
+  const { status, loading } = useSession();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState("");
   const [previewImage, setPreviewImage] = useState<ImageFile | null>(null);
@@ -109,13 +101,6 @@ export default function AdminDashboard() {
       .catch(() => setError("加载统计数据失败"));
   }, [status, loading, router]);
 
-  const handleLogout = async () => {
-    await logout();
-    queryClient.clear();
-    showToast("已退出登录", "success");
-    router.replace("/admin/login");
-  };
-
   if (loading || !status?.authenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -124,28 +109,14 @@ export default function AdminDashboard() {
     );
   }
 
+  const weekUploads = stats?.dailyTrend.reduce((sum, d) => sum + d.count, 0) || 0;
+
   return (
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="max-w-7xl mx-auto">
       <ToastContainer />
-      <div className="flex items-center justify-between mb-8">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900 dark:text-white">后台管理</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">CattoPic 数据统计</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Link href="/manage" className="px-4 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded-lg font-medium flex items-center gap-1.5">
-            <ImageIcon className="h-4 w-4" /> 图片管理
-          </Link>
-          <Link href="/admin/settings" className="px-4 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded-lg font-medium flex items-center gap-1.5">
-            <GearIcon className="h-4 w-4" /> 系统设置
-          </Link>
-          <button
-            onClick={handleLogout}
-            className="px-4 py-2 text-sm bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg font-medium flex items-center gap-1.5"
-          >
-            <PersonIcon className="h-4 w-4" /> 退出
-          </button>
-        </div>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">概览</h1>
+        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">CattoPic 数据统计</p>
       </div>
 
       {error && (
@@ -180,20 +151,50 @@ export default function AdminDashboard() {
               icon={<TagIcon className="h-5 w-5 text-purple-500" />}
               accent="bg-purple-50 dark:bg-purple-900/30"
             />
-
+            <StatCard
+              label="近 7 天上传"
+              value={String(weekUploads)}
+              icon={<Link1Icon className="h-5 w-5 text-amber-500" />}
+              accent="bg-amber-50 dark:bg-amber-900/30"
+            />
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* 近 7 天趋势 */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-                <Link1Icon className="h-5 w-5 text-indigo-500" /> 近 7 天上传趋势
-              </h2>
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">近 7 天上传趋势</h2>
               <BarList
                 data={stats.dailyTrend}
                 label={(d) => (d.date || "").slice(5)}
                 color="bg-indigo-500"
               />
+            </div>
+
+            {/* 最近上传 */}
+            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
+              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">最近上传</h2>
+              {stats.recentUploads.length === 0 ? (
+                <div className="text-sm text-gray-400 text-center py-4">暂无图片</div>
+              ) : (
+                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                  {stats.recentUploads.map((img) => (
+                    <button
+                      key={img.id}
+                      onClick={() => setPreviewImage(toImageFile(img))}
+                      className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-square group"
+                      title="点击预览"
+                    >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={img.urls?.original || getFullUrl(img.paths.original)}
+                        alt={img.originalName}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                        loading="lazy"
+                      />
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* 格式分布 */}
@@ -206,16 +207,6 @@ export default function AdminDashboard() {
               />
             </div>
 
-            {/* 方向分布 */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">方向分布</h2>
-              <BarList
-                data={stats.orientationDistribution}
-                label={(d) => (d.orientation === "portrait" ? "纵向" : d.orientation === "landscape" ? "横向" : d.orientation || "-")}
-                color="bg-purple-500"
-              />
-            </div>
-
             {/* 标签 TOP */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">标签 TOP 10</h2>
@@ -225,33 +216,6 @@ export default function AdminDashboard() {
                 color="bg-amber-500"
               />
             </div>
-          </div>
-
-          {/* 最近上传 */}
-          <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 mt-6">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">最近上传</h2>
-            {stats.recentUploads.length === 0 ? (
-              <div className="text-sm text-gray-400 text-center py-4">暂无图片</div>
-            ) : (
-              <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
-                {stats.recentUploads.map((img) => (
-                  <button
-                    key={img.id}
-                    onClick={() => setPreviewImage(toImageFile(img))}
-                    className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-square group"
-                    title="点击预览"
-                  >
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={img.urls?.original || getFullUrl(img.paths.original)}
-                      alt={img.originalName}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                      loading="lazy"
-                    />
-                  </button>
-                ))}
-              </div>
-            )}
           </div>
         </>
       )}

@@ -92,6 +92,7 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
       className={`drop-zone mb-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
         isPasteActive ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-slate-900' : ''
       }`}
+      onClick={() => fileInputRef.current?.click()}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
@@ -121,7 +122,10 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
       <div className="flex items-center gap-3">
         <button
           type="button"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={(e) => {
+            e.stopPropagation()
+            fileInputRef.current?.click()
+          }}
           className="btn-primary px-4 py-2"
         >
           选择图片
@@ -129,7 +133,10 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
         {onFolderSelected && (
           <button
             type="button"
-            onClick={() => folderInputRef.current?.click()}
+            onClick={(e) => {
+              e.stopPropagation()
+              folderInputRef.current?.click()
+            }}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200 flex items-center gap-1.5"
           >
             <FolderIcon className="h-4 w-4" />

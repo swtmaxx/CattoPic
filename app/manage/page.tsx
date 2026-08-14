@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -365,6 +366,14 @@ export default function Manage() {
         authenticated
       />
 
+      <div className="flex items-center gap-2 mb-6">
+        <Link href="/admin" className="px-4 py-2 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5">
+          返回后台
+        </Link>
+        <Link href="/" className="px-4 py-2 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5">
+          上传页
+        </Link>
+      </div>
       <ToastContainer />
 
       {displayStatus && (

@@ -8,10 +8,10 @@ import { concurrentUpload } from './utils/concurrentUpload'
 import { UploadResponse, StatusMessage as StatusMessageType, ConfigSettings, ImageFile, UploadResult, ImageListResponse } from './types'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
-import PreviewSidebar from './components/upload/PreviewSidebar'
 import UploadResultPanel from './components/upload/UploadResultPanel'
+import UploadStatusList from './components/upload/UploadStatusList'
 import { motion } from 'motion/react'
-import { PlusCircledIcon, LockClosedIcon, Spinner } from './components/ui/icons'
+import { LockClosedIcon, Spinner } from './components/ui/icons'
 import { useInvalidateImages } from './hooks/useImages'
 import { useUploadState } from './hooks/useUploadState'
 import { useSession } from './hooks/useSession'
@@ -25,9 +25,7 @@ export default function Home() {
   const { status: sessionStatus, loading: sessionLoading, logout } = useSession()
   const [status, setStatus] = useState<StatusMessageType | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
-  const [showPreviewSidebar, setShowPreviewSidebar] = useState(false)
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
-  const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [concurrency, setConcurrency] = useState(5)
 
@@ -37,7 +35,7 @@ export default function Home() {
 
   // 上传状态管理
   const uploadState = useUploadState()
-  const { phase, files: uploadFiles, completedCount, errorCount, initializeUpload, updateFileStatus, cancelUpload, reset: resetUploadState } = uploadState
+  const { phase, files: uploadFiles, completedCount, errorCount, initializeUpload, updateFileStatus, reset: resetUploadState } = uploadState
 
   // 判断是否正在上传
   const isUploading = phase === 'uploading' || phase === 'processing'
@@ -202,15 +200,6 @@ export default function Home() {
   }, [queryClient])
 
 
-  // 监听文件选择，当有文件选择时，打开预览侧边栏
-  useEffect(() => {
-    if (fileDetails.length > 0 && !showPreviewSidebar) {
-      setShowPreviewSidebar(true)
-    } else if (fileDetails.length === 0) {
-      setShowPreviewSidebar(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fileDetails.length])
 
   useEffect(() => {
     if (sessionLoading) return
@@ -242,9 +231,9 @@ export default function Home() {
      
   }, [])
 
-  const handleUpload = async (files?: { id: string; file: File }[], tags?: string[]) => {
-    const targets = files ?? fileDetails
-    if (targets.length === 0) return
+  const handleUpload = useCallback(async (files: { id: string; file: File }[], tags?: string[]) => {
+    const targets = files
+    if (!targets || targets.length === 0) return
 
     setStatus(null)
 
@@ -316,45 +305,24 @@ export default function Home() {
 
       resetUploadState()
     }
-  }
+  }, [concurrency, selectedTags, initializeUpload, updateFileStatus, primeImagesListCache, invalidateImages, resetUploadState])
 
-  // 取消上传处理
-  const handleCancelUpload = useCallback(() => {
-    cancelUpload()
-    setStatus({
-      type: 'warning',
-      message: '上传已取消'
-    })
-  }, [cancelUpload])
+  // 重试上传失败项
+  const handleRetryFailed = useCallback(() => {
+    const failed = uploadFiles
+      .filter((f) => f.status === 'error')
+      .map((f) => ({ id: f.id, file: f.file }))
+    if (failed.length === 0) return
+    setUploadResults([])
+    void handleUpload(failed)
+  }, [uploadFiles, handleUpload])
 
-
-  // 文件选择、删除和清空处理函数
-  const handleFilesSelected = (files: { id: string, file: File }[]) => {
-    // 选择新文件时，重置上传状态为 idle
-    if (phase !== 'idle') {
-      resetUploadState();
-    }
-    // 清空之前的上传结果
-    if (uploadResults.length > 0) {
-      setUploadResults([]);
-    }
-    setFileDetails(files);
-  }
-
-  const handleRemoveFile = (id: string) => {
-    const updatedFiles = fileDetails.filter(item => item.id !== id);
-    setFileDetails(updatedFiles);
-    
-    // 如果没有文件了，可以选择关闭侧边栏
-    if (updatedFiles.length === 0) {
-      setShowPreviewSidebar(false);
-    }
-  }
-
-  const handleRemoveAllFiles = () => {
-    setFileDetails([]);
-    setShowPreviewSidebar(false);
-  }
+  // 清空上传队列与结果
+  const handleClearUpload = useCallback(() => {
+    resetUploadState()
+    setUploadResults([])
+    setStatus(null)
+  }, [resetUploadState])
 
   // 更新标签
   const handleTagsChange = (tags: string[]) => {
@@ -369,12 +337,6 @@ export default function Home() {
     router.replace('/admin/login');
   }, [logout, queryClient, router]);
 
-  // 切换侧边栏状态
-  const togglePreviewSidebar = () => {
-    setShowPreviewSidebar(!showPreviewSidebar);
-  }
-
-  // 计算主内容的样式，根据侧边栏是否打开调整内容区域
   const mainContentStyle = { margin: '0 auto' };
 
   if (sessionLoading) {
@@ -427,51 +389,23 @@ export default function Home() {
         onUpload={handleUpload}
         isUploading={isUploading}
         maxUploadCount={maxUploadCount}
-        onFilesSelected={handleFilesSelected}
-        onTogglePreview={togglePreviewSidebar}
-        isPreviewOpen={showPreviewSidebar}
-        fileCount={fileDetails.length}
-        existingFiles={fileDetails}
         onTagsChange={handleTagsChange}
         concurrency={concurrency}
         onConcurrencyChange={setConcurrency}
       />
 
-      {/* 上传结果面板：停留在上传页，可一键复制全部链接 */}
-      <UploadResultPanel results={uploadResults} onClear={() => setUploadResults([])} />
-
-
-      {/* 只有在有待上传图片且预览侧边栏关闭时显示 */}
-      {fileDetails.length > 0 && !showPreviewSidebar && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          onClick={() => setShowPreviewSidebar(true)}
-          className="fixed bottom-20 right-6 bg-indigo-500 dark:bg-indigo-400 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all z-20 flex items-center justify-center"
-          title="查看待上传图片"
-        >
-          <div className="relative">
-            <PlusCircledIcon className="h-6 w-6" />
-            <span className="absolute -top-2 -right-2 bg-green-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{fileDetails.length}</span>
-          </div>
-        </motion.button>
-      )}
-
-
-      {/* 待上传图片预览侧边栏 */}
-      <PreviewSidebar
-        files={phase === 'idle' ? fileDetails.map(f => ({ ...f, status: 'pending' as const })) : uploadFiles}
+      {/* 上传状态列表：显示每个文件的上传状态，可重试失败项 */}
+      <UploadStatusList
+        files={uploadFiles}
         phase={phase}
         completedCount={completedCount}
         errorCount={errorCount}
-        onRemoveFile={handleRemoveFile}
-        onRemoveAll={handleRemoveAllFiles}
-        isOpen={showPreviewSidebar}
-        onClose={() => setShowPreviewSidebar(false)}
-        onUpload={(files) => handleUpload(files)}
-        onCancelUpload={handleCancelUpload}
+        onRetryFailed={handleRetryFailed}
+        onClear={handleClearUpload}
       />
+
+      {/* 上传结果面板：上传成功后显示 4 种链接（原图/WebP/AVIF/Markdown） */}
+      <UploadResultPanel results={uploadResults} onClear={() => setUploadResults([])} />
 
     </div>
   )
