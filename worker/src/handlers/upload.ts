@@ -7,7 +7,7 @@ import { ImageProcessor } from '../services/imageProcessor';
 import { CompressionService } from '../services/compression';
 import { getEffectiveConfig } from './system';
 import { successResponse, errorResponse } from '../utils/response';
-import { generateImageId, parseTags, parseNumber } from '../utils/validation';
+import { generateImageId, parseTags } from '../utils/validation';
 import { buildImageUrls } from '../utils/imageTransform';
 
 // Maximum file size: 70MB (Cloudflare Images Binding limit)
@@ -41,7 +41,6 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
 
     const file = (formData.get('image') ?? formData.get('file')) as File | null;
     const tagsString = formData.get('tags') as string | null;
-    const expiryMinutes = parseNumber(formData.get('expiryMinutes') as string | null, 0);
     // Global compression settings from admin config (no per-upload overrides)
     const config = await getEffectiveConfig(c.env.DB);
     const compressionOptions = config.compression;
@@ -149,19 +148,11 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
       if (wantsAvif) paths.avif = paths.original;
     }
 
-    // Calculate expiry time
-    let expiryTime: string | undefined;
-    if (expiryMinutes > 0) {
-      const expiry = new Date(Date.now() + expiryMinutes * 60 * 1000);
-      expiryTime = expiry.toISOString();
-    }
-
     // Create and save metadata
     const imageMetadata: ImageMetadata = {
       id,
       originalName: file.name,
       uploadTime: new Date().toISOString(),
-      expiryTime,
       orientation: imageInfo.orientation,
       tags,
       format: imageInfo.format,
@@ -195,7 +186,6 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
       orientation: imageInfo.orientation,
       tags,
       sizes: imageMetadata.sizes,
-      expiryTime,
       format: imageInfo.format,
     };
 

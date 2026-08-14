@@ -159,6 +159,5 @@ export interface SessionStatus {
 
 export interface UpdateImageData {
   tags?: string[];
-  expiryMinutes?: number;
   originalName?: string;
 }

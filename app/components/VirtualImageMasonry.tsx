@@ -126,6 +126,7 @@ function VirtualImageMasonryInner({
         return (
           <div
             key={image.id}
+            data-image-id={image.id}
             style={{
               position: 'absolute',
               top: 0,

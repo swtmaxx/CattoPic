@@ -12,7 +12,6 @@ export interface ConcurrentUploadOptions {
   files: { id: string; file: File }[]
   concurrency?: number
   tags: string[]
-  expiryMinutes: number
   quality?: number
   maxWidth?: number
   preserveAnimation?: boolean
@@ -30,7 +29,6 @@ export async function concurrentUpload(options: ConcurrentUploadOptions): Promis
     files,
     concurrency = 5,
     tags,
-    expiryMinutes,
     quality = 90,
     maxWidth = 0,
     preserveAnimation = true,
@@ -57,7 +55,6 @@ export async function concurrentUpload(options: ConcurrentUploadOptions): Promis
       const formData = new FormData()
       formData.append('image', item.file)
       formData.append('tags', tags.join(','))
-      formData.append('expiryMinutes', expiryMinutes.toString())
       formData.append('quality', quality.toString())
       formData.append('maxWidth', maxWidth.toString())
       formData.append('maxHeight', maxWidth.toString())

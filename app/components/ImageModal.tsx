@@ -18,10 +18,9 @@ interface ImageModalProps {
   onClose: () => void;
   onDelete?: (id: string) => Promise<void>;
   onRename?: (image: ImageType) => void;
-  onExpiry?: (image: ImageType) => void;
 }
 
-export default function ImageModal({ image, isOpen, onClose, onDelete, onRename, onExpiry }: ImageModalProps) {
+export default function ImageModal({ image, isOpen, onClose, onDelete, onRename }: ImageModalProps) {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
 
@@ -121,14 +120,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename,
                       重命名
                     </button>
                   )}
-                  {onExpiry && (
-                    <button
-                      onClick={() => onExpiry(image)}
-                      className="px-4 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/20 transition-all duration-200"
-                    >
-                      修改过期
-                    </button>
-                  )}
+
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
                     className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"

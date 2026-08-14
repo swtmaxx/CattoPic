@@ -2,7 +2,7 @@ import type { Context } from 'hono';
 import type { Env, Config, AdminStats, CompressionOptions } from '../types';
 import { MetadataService } from '../services/metadata';
 import { CacheService, CacheKeys, CACHE_TTL } from '../services/cache';
-import { dispatchImageDeletions, processPendingDeletionJobs, toDeletionTarget } from '../services/deletion';
+import { processPendingDeletionJobs } from '../services/deletion';
 import { successResponse, errorResponse } from '../utils/response';
 
 // Default compression options (global defaults used by the upload handler)
@@ -177,44 +177,15 @@ export async function statsHandler(c: Context<{ Bindings: Env }>): Promise<Respo
   }
 }
 
-// POST /api/cleanup - Clean up expired images
+// POST /api/cleanup - Retry pending R2 deletion jobs
 export async function cleanupHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
-    const metadata = new MetadataService(c.env.DB);
-    const cache = new CacheService(c.env.CACHE_KV);
-
     c.executionCtx.waitUntil(
       processPendingDeletionJobs(c.env)
         .catch((err) => console.error('Pending deletion retry failed:', err))
     );
 
-    // Get expired images
-    const expiredImages = await metadata.getExpiredImages();
-    const deletionTargets = expiredImages.map((image) =>
-      toDeletionTarget(image.id, {
-        original: image.paths.original,
-        webp: image.paths.webp || undefined,
-        avif: image.paths.avif || undefined,
-      })
-    );
-
-    const deletedCount = await metadata.deleteImagesWithDeletionJobs(deletionTargets);
-
-    if (deletedCount > 0) {
-      await Promise.all([
-        cache.invalidateImagesList(),
-        cache.invalidateTagsList(),
-        cache.invalidateImageDetails(deletionTargets.map((target) => target.id)),
-      ]);
-
-      c.executionCtx.waitUntil(
-        dispatchImageDeletions(c.env, deletionTargets, 'expired')
-          .catch((err) => console.error('Expired image deletion failed:', err))
-      );
-    }
-
-    return successResponse({ deletedCount });
-
+    return successResponse({ deletedCount: 0 });
   } catch (err) {
     console.error('Cleanup handler error:', err);
     return errorResponse('Cleanup failed');

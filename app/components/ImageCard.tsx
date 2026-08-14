@@ -7,7 +7,7 @@ import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { toCdnCgiImageUrl } from "../utils/cdnImage";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
+import { getFormatLabel } from "../utils/imageUtils";
 import ContextMenu, { ContextMenuGroup } from "./ContextMenu";
 import { showToast } from "./ToastContainer";
 import {
@@ -327,9 +327,6 @@ const ImageCard = React.memo(function ImageCard({
                 }`}
               >
                 {getFormatLabel(image.format)}
-              </span>
-              <span className="text-xs font-medium px-2 py-1 rounded-full bg-purple-500/70">
-                {getOrientationLabel(image.orientation)}
               </span>
             </div>
 

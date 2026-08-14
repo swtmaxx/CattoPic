@@ -3,9 +3,7 @@ import { cors } from 'hono/cors';
 import type { Env } from './types';
 import { AuthService } from './services/auth';
 import { corsResponse, unauthorizedResponse } from './utils/response';
-import { MetadataService } from './services/metadata';
-import { CacheService } from './services/cache';
-import { dispatchImageDeletions, processPendingDeletionJobs, toDeletionTarget } from './services/deletion';
+import { processPendingDeletionJobs } from './services/deletion';
 
 // Import handlers
 import { uploadSingleHandler } from './handlers/upload';
@@ -118,48 +116,18 @@ app.onError((err) => {
   );
 });
 
-// Scheduled handler for cron jobs - cleanup expired images
+// Scheduled handler for cron jobs - retry pending R2 deletion jobs
 async function scheduledHandler(
   _event: ScheduledEvent,
   env: Env,
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _ctx: ExecutionContext
 ): Promise<void> {
-  console.log('Cron job started: cleaning up expired images');
-
-  const metadata = new MetadataService(env.DB);
-  const cache = new CacheService(env.CACHE_KV);
+  console.log('Cron job started: retrying pending R2 deletion jobs');
 
   try {
     const retriedDeletionJobs = await processPendingDeletionJobs(env);
-    if (retriedDeletionJobs > 0) {
-      console.log(`Retried ${retriedDeletionJobs} pending deletion jobs`);
-    }
-
-    const expiredImages = await metadata.getExpiredImages();
-    console.log(`Found ${expiredImages.length} expired images`);
-
-    const deletionTargets = expiredImages.map((image) =>
-      toDeletionTarget(image.id, {
-        original: image.paths.original,
-        webp: image.paths.webp || undefined,
-        avif: image.paths.avif || undefined,
-      })
-    );
-
-    const deletedCount = await metadata.deleteImagesWithDeletionJobs(deletionTargets);
-
-    if (deletedCount > 0) {
-      await Promise.all([
-        cache.invalidateImagesList(),
-        cache.invalidateTagsList(),
-        cache.invalidateImageDetails(deletionTargets.map((target) => target.id)),
-      ]);
-
-      await dispatchImageDeletions(env, deletionTargets, 'expired');
-    }
-
-    console.log(`Cron job completed: deleted ${deletedCount} expired images`);
+    console.log(`Cron job completed: retried ${retriedDeletionJobs} pending deletion jobs`);
   } catch (err) {
     console.error('Cron job failed:', err);
   }

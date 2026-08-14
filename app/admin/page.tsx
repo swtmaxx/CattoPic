@@ -6,13 +6,14 @@ import { useRouter } from "next/navigation";
 import { useSession } from "../hooks/useSession";
 import { useTheme } from "../hooks/useTheme";
 import { api } from "../utils/request";
-import type { AdminStats } from "../types";
+import type { AdminStats, ImageFile } from "../types";
+import { getFullUrl } from "../utils/baseUrl";
+import ImageModal from "../components/ImageModal";
 import {
   Spinner,
   ImageIcon,
   SizeIcon,
   TagIcon,
-  ClockIcon,
   GearIcon,
   PersonIcon,
   Link1Icon,
@@ -20,7 +21,27 @@ import {
 import ToastContainer from "../components/ToastContainer";
 import { showToast } from "../components/ToastContainer";
 import { useQueryClient } from "@tanstack/react-query";
-import { queryKeys } from "../lib/queryKeys";
+
+function toImageFile(img: AdminStats["recentUploads"][number]): ImageFile {
+  return {
+    id: img.id,
+    originalName: img.originalName,
+    uploadTime: img.uploadTime,
+    expiryTime: img.expiryTime,
+    orientation: img.orientation as "landscape" | "portrait",
+    tags: img.tags || [],
+    format: img.format,
+    width: img.width,
+    height: img.height,
+    paths: { original: img.paths.original, webp: img.paths.webp, avif: img.paths.avif },
+    sizes: { original: img.sizes.original, webp: img.sizes.webp, avif: img.sizes.avif },
+    urls: {
+      original: getFullUrl(img.paths.original),
+      webp: img.paths.webp ? getFullUrl(img.paths.webp) : "",
+      avif: img.paths.avif ? getFullUrl(img.paths.avif) : "",
+    },
+  };
+}
 
 function formatBytes(bytes: number): string {
   if (!bytes) return "0 B";
@@ -44,7 +65,7 @@ function StatCard({ label, value, icon, accent }: { label: string; value: string
   );
 }
 
-function BarList({ data, label, color }: { data: Array<{ name?: string; format?: string; orientation?: string; count: number }>; label: (item: any) => string; color: string }) {
+function BarList({ data, label, color }: { data: Array<{ name?: string; format?: string; orientation?: string; date?: string; count: number }>; label: (item: { name?: string; format?: string; orientation?: string; date?: string; count: number }) => string; color: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   if (data.length === 0) {
     return <div className="text-sm text-gray-400 py-4 text-center">暂无数据</div>;
@@ -71,6 +92,7 @@ export default function AdminDashboard() {
   const { status, loading, logout } = useSession();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState("");
+  const [previewImage, setPreviewImage] = useState<ImageFile | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -158,12 +180,7 @@ export default function AdminDashboard() {
               icon={<TagIcon className="h-5 w-5 text-purple-500" />}
               accent="bg-purple-50 dark:bg-purple-900/30"
             />
-            <StatCard
-              label="已过期图片"
-              value={String(stats.expiredImages)}
-              icon={<ClockIcon className="h-5 w-5 text-amber-500" />}
-              accent="bg-amber-50 dark:bg-amber-900/30"
-            />
+
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
@@ -174,7 +191,7 @@ export default function AdminDashboard() {
               </h2>
               <BarList
                 data={stats.dailyTrend}
-                label={(d) => d.date.slice(5)}
+                label={(d) => (d.date || "").slice(5)}
                 color="bg-indigo-500"
               />
             </div>
@@ -184,7 +201,7 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">格式分布</h2>
               <BarList
                 data={stats.formatDistribution}
-                label={(d) => d.format}
+                label={(d) => d.format || "-"}
                 color="bg-emerald-500"
               />
             </div>
@@ -194,7 +211,7 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">方向分布</h2>
               <BarList
                 data={stats.orientationDistribution}
-                label={(d) => (d.orientation === "portrait" ? "纵向" : d.orientation === "landscape" ? "横向" : d.orientation)}
+                label={(d) => (d.orientation === "portrait" ? "纵向" : d.orientation === "landscape" ? "横向" : d.orientation || "-")}
                 color="bg-purple-500"
               />
             </div>
@@ -204,7 +221,7 @@ export default function AdminDashboard() {
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">标签 TOP 10</h2>
               <BarList
                 data={stats.topTags}
-                label={(d) => d.name}
+                label={(d) => d.name || "-"}
                 color="bg-amber-500"
               />
             </div>
@@ -218,16 +235,32 @@ export default function AdminDashboard() {
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-8 gap-3">
                 {stats.recentUploads.map((img) => (
-                  <div key={img.id} className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-square">
+                  <button
+                    key={img.id}
+                    onClick={() => setPreviewImage(toImageFile(img))}
+                    className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-square group"
+                    title="点击预览"
+                  >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img src={img.urls?.original} alt={img.originalName} className="w-full h-full object-cover" loading="lazy" />
-                  </div>
+                    <img
+                      src={getFullUrl(img.paths.original)}
+                      alt={img.originalName}
+                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                      loading="lazy"
+                    />
+                  </button>
                 ))}
               </div>
             )}
           </div>
         </>
       )}
+
+      <ImageModal
+        image={previewImage}
+        isOpen={!!previewImage}
+        onClose={() => setPreviewImage(null)}
+      />
     </div>
   );
 }

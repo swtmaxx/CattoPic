@@ -8,11 +8,11 @@ import { concurrentUpload } from './utils/concurrentUpload'
 import { UploadResponse, StatusMessage as StatusMessageType, ConfigSettings, ImageFile, UploadResult, ImageListResponse } from './types'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
-import ImageSidebar from './components/ImageSidebar'
 import PreviewSidebar from './components/upload/PreviewSidebar'
+import UploadResultPanel from './components/upload/UploadResultPanel'
 import { motion } from 'motion/react'
-import { ImageIcon, PlusCircledIcon, LockClosedIcon, Spinner } from './components/ui/icons'
-import { useDeleteImage, useInvalidateImages } from './hooks/useImages'
+import { PlusCircledIcon, LockClosedIcon, Spinner } from './components/ui/icons'
+import { useInvalidateImages } from './hooks/useImages'
 import { useUploadState } from './hooks/useUploadState'
 import { useSession } from './hooks/useSession'
 import { useQueryClient, type InfiniteData } from '@tanstack/react-query'
@@ -25,18 +25,15 @@ export default function Home() {
   const { status: sessionStatus, loading: sessionLoading, logout } = useSession()
   const [status, setStatus] = useState<StatusMessageType | null>(null)
   const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
-  const [showResultSidebar, setShowResultSidebar] = useState(false)
   const [showPreviewSidebar, setShowPreviewSidebar] = useState(false)
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
   const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
-  const [expiryMinutes, setExpiryMinutes] = useState<number>(0)
   const [concurrency, setConcurrency] = useState(5)
 
   // TanStack Query cache invalidation hook
   const invalidateImages = useInvalidateImages()
   const queryClient = useQueryClient()
-  const deleteImageMutation = useDeleteImage()
 
   // 上传状态管理
   const uploadState = useUploadState()
@@ -204,14 +201,6 @@ export default function Home() {
     }
   }, [queryClient])
 
-  useEffect(() => {
-    if (uploadResults.length > 0 && !showResultSidebar) {
-      setShowResultSidebar(true)
-      // 上传完成后关闭预览侧边栏
-      setShowPreviewSidebar(false)
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [uploadResults.length])
 
   // 监听文件选择，当有文件选择时，打开预览侧边栏
   useEffect(() => {
@@ -253,21 +242,21 @@ export default function Home() {
      
   }, [])
 
-  const handleUpload = async () => {
-    if (fileDetails.length === 0) return
+  const handleUpload = async (files?: { id: string; file: File }[], tags?: string[]) => {
+    const targets = files ?? fileDetails
+    if (targets.length === 0) return
 
     setStatus(null)
 
     // 初始化上传状态，获取 AbortController
-    const controller = initializeUpload(fileDetails)
+    const controller = initializeUpload(targets)
 
     try {
       // 使用并发上传（5个同时）
       const results = await concurrentUpload({
-        files: fileDetails,
+        files: targets,
         concurrency,
-        tags: selectedTags,
-        expiryMinutes,
+        tags: tags ?? selectedTags,
         onFileStatusChange: updateFileStatus,
         signal: controller.signal,
       })
@@ -340,30 +329,6 @@ export default function Home() {
     })
   }, [cancelUpload])
 
-  const handleDeleteImage = async (id: string) => {
-    try {
-      await deleteImageMutation.mutateAsync(id);
-
-      setUploadResults((prev) => {
-        const next = prev.filter((item) => item.id !== id);
-        if (next.length === 0) {
-          setShowResultSidebar(false);
-        }
-        return next;
-      });
-
-      setStatus({
-        type: 'success',
-        message: '图片已删除'
-      });
-    } catch (error) {
-      console.error('删除失败:', error);
-      setStatus({
-        type: 'error',
-        message: error instanceof Error ? `删除失败：${error.message}` : '删除失败，请重试'
-      });
-    }
-  }
 
   // 文件选择、删除和清空处理函数
   const handleFilesSelected = (files: { id: string, file: File }[]) => {
@@ -371,10 +336,9 @@ export default function Home() {
     if (phase !== 'idle') {
       resetUploadState();
     }
-    // 清空之前的上传结果，避免 ImageSidebar 意外打开
+    // 清空之前的上传结果
     if (uploadResults.length > 0) {
       setUploadResults([]);
-      setShowResultSidebar(false);
     }
     setFileDetails(files);
   }
@@ -470,38 +434,14 @@ export default function Home() {
         isPreviewOpen={showPreviewSidebar}
         fileCount={fileDetails.length}
         existingFiles={fileDetails}
-        expiryMinutes={expiryMinutes}
-        setExpiryMinutes={setExpiryMinutes}
         onTagsChange={handleTagsChange}
         concurrency={concurrency}
         onConcurrencyChange={setConcurrency}
-        onZipUploadComplete={(results) => {
-          // ZIP上传完成后刷新图片缓存
-          primeImagesListCache(results)
-          invalidateImages()
-          setStatus({
-            type: 'success',
-            message: 'ZIP批量上传完成'
-          })
-        }}
       />
 
-      {/* 只有在有上传结果且结果侧边栏关闭时显示 */}
-      {uploadResults.length > 0 && !showResultSidebar && (
-        <motion.button
-          initial={{ opacity: 0, scale: 0.8 }}
-          animate={{ opacity: 1, scale: 1 }}
-          whileHover={{ scale: 1.1 }}
-          onClick={() => setShowResultSidebar(true)}
-          className="fixed bottom-6 right-6 bg-indigo-600 dark:bg-indigo-500 text-white rounded-full p-3 shadow-lg hover:shadow-xl transition-all z-20 flex items-center justify-center"
-          title="查看已上传图片"
-        >
-          <div className="relative">
-            <ImageIcon className="h-6 w-6" />
-            <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">{uploadResults.length}</span>
-          </div>
-        </motion.button>
-      )}
+      {/* 上传结果面板：停留在上传页，可一键复制全部链接 */}
+      <UploadResultPanel results={uploadResults} onClear={() => setUploadResults([])} />
+
 
       {/* 只有在有待上传图片且预览侧边栏关闭时显示 */}
       {fileDetails.length > 0 && !showPreviewSidebar && (
@@ -520,13 +460,6 @@ export default function Home() {
         </motion.button>
       )}
 
-      {/* 上传结果侧边栏 */}
-      <ImageSidebar
-        isOpen={showResultSidebar}
-        results={uploadResults}
-        onClose={() => setShowResultSidebar(false)}
-        onDelete={handleDeleteImage}
-      />
 
       {/* 待上传图片预览侧边栏 */}
       <PreviewSidebar

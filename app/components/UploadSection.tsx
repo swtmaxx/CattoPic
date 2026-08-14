@@ -2,22 +2,22 @@
 
 import React, { useState, useEffect, useLayoutEffect } from 'react'
 import UploadDropzone from './upload/UploadDropzone'
-import ZipUploadDropzone from './upload/ZipUploadDropzone'
-import ZipPreview from './upload/ZipPreview'
-import ZipUploadProgress from './upload/ZipUploadProgress'
-import UploadModeToggle, { UploadMode } from './upload/UploadModeToggle'
-import ExpirySelector from './ExpirySelector'
 import TagSelector from './upload/TagSelector'
 import { api } from '../utils/request'
 import { UploadIcon, ExclamationTriangleIcon, ImageIcon, Spinner } from '../components/ui/icons'
 import { formatFileSize } from '../utils/imageUtils'
-import { useZipUpload } from '../hooks/useZipUpload'
-import type { UploadResult } from '../types'
 
 const MAX_FILE_SIZE = 70 * 1024 * 1024; // 70MB
+const IMAGE_EXTENSIONS = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'avif', 'svg', 'bmp', 'ico'];
+
+function isImageFile(file: File): boolean {
+  if (file.type && file.type.startsWith('image/')) return true;
+  const ext = file.name.split('.').pop()?.toLowerCase() || '';
+  return IMAGE_EXTENSIONS.includes(ext);
+}
 
 interface UploadSectionProps {
-  onUpload: (files: File[], expiryMinutes: number, tags: string[]) => Promise<void>
+  onUpload: (files: { id: string, file: File }[], tags: string[]) => Promise<void>
   isUploading: boolean
   maxUploadCount?: number
   onFilesSelected?: (files: { id: string, file: File }[]) => void
@@ -25,13 +25,9 @@ interface UploadSectionProps {
   isPreviewOpen?: boolean
   fileCount?: number
   existingFiles?: { id: string, file: File }[]
-  expiryMinutes: number
-  setExpiryMinutes: React.Dispatch<React.SetStateAction<number>>
   onTagsChange?: (tags: string[]) => void
   concurrency?: number
   onConcurrencyChange?: (n: number) => void
-  // ZIP上传完成回调
-  onZipUploadComplete?: (results: UploadResult[]) => void
 }
 
 export default function UploadSection({
@@ -43,14 +39,10 @@ export default function UploadSection({
   isPreviewOpen,
   fileCount = 0,
   existingFiles = [],
-  expiryMinutes,
-  setExpiryMinutes,
   onTagsChange,
   concurrency = 5,
   onConcurrencyChange,
-  onZipUploadComplete
 }: UploadSectionProps) {
-  const [uploadMode, setUploadMode] = useState<UploadMode>('images')
   const [selectedFiles, setSelectedFiles] = useState<File[]>([])
   const [fileDetails, setFileDetails] = useState<{ id: string, file: File }[]>([])
   const [wasUploading, setWasUploading] = useState(false)
@@ -58,12 +50,6 @@ export default function UploadSection({
   const [oversizedFiles, setOversizedFiles] = useState<string[]>([])
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [availableTags, setAvailableTags] = useState<string[]>([])
-
-  // ZIP上传状态
-  const zipUpload = useZipUpload()
-
-  // 判断是否处于ZIP上传进行中
-  const isZipProcessing = zipUpload.phase !== 'idle' && zipUpload.phase !== 'preview' && zipUpload.phase !== 'completed'
 
   // 获取可用标签列表
   const fetchTags = async () => {
@@ -188,210 +174,177 @@ export default function UploadSection({
     }
   }
 
+  // 文件夹上传：过滤图片并自动上传
+  const handleFolderSelected = async (files: File[]) => {
+    const imageFiles = files.filter(isImageFile);
+    if (imageFiles.length === 0) {
+      setOversizedFiles(['所选文件夹中没有找到支持的图片文件']);
+      return;
+    }
+
+    // 过滤超大文件
+    const oversized: string[] = [];
+    const validFiles = imageFiles.filter((file) => {
+      if (file.size > MAX_FILE_SIZE) {
+        oversized.push(`${file.name} (${formatFileSize(file.size)})`);
+        return false;
+      }
+      return true;
+    });
+    if (oversized.length > 0) {
+      setOversizedFiles(oversized);
+    }
+
+    if (validFiles.length === 0) return;
+
+    // 与已选文件合并去重
+    const currentDetails = [...fileDetails];
+    const existingKeys = new Set(
+      currentDetails.map((item) => `${item.file.name}|${item.file.size}|${item.file.lastModified}`)
+    );
+    const newDetails = [...currentDetails];
+    for (const file of validFiles) {
+      const key = `${file.name}|${file.size}|${file.lastModified}`;
+      if (existingKeys.has(key)) continue;
+      existingKeys.add(key);
+      newDetails.push({ id: Math.random().toString(36).substring(2, 11), file });
+    }
+
+    if (newDetails.length > maxUploadCount) {
+      newDetails.splice(maxUploadCount);
+      setExceedsLimit(true);
+    } else {
+      setExceedsLimit(false);
+    }
+
+    setSelectedFiles(newDetails.map((item) => item.file));
+    setFileDetails(newDetails);
+    onFilesSelected?.(newDetails);
+
+    // 自动上传文件夹中的全部图片
+    await onUpload(newDetails, selectedTags);
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (selectedFiles.length === 0) return
-    await onUpload(selectedFiles, expiryMinutes, selectedTags)
+    if (fileDetails.length === 0) return
+    await onUpload(fileDetails, selectedTags)
   }
 
-  // ZIP文件选择处理
-  const handleZipFileSelected = (file: File) => {
-    zipUpload.selectZipFile(file)
-  }
+  return (
+    <>
+      <div className="card p-8 mb-6">
+        <h2 className="text-2xl font-bold mb-6 flex items-center">
+          <UploadIcon className="h-6 w-6 mr-2 text-green-500" />
+          上传图片
+        </h2>
 
-  // 开始ZIP上传
-  const handleZipUploadConfirm = () => {
-    zipUpload.startUpload({
-      tags: selectedTags,
-      expiryMinutes,
-      concurrency,
-      onCompleted: onZipUploadComplete,
-    })
-  }
-
-  // 切换模式时重置状态
-  const handleModeChange = (mode: UploadMode) => {
-    if (isUploading || isZipProcessing) return
-    setUploadMode(mode)
-    if (mode === 'zip') {
-      zipUpload.reset()
-    }
-  }
-
-  // 渲染ZIP上传内容
-  const renderZipUploadContent = () => {
-    const { phase, zipFile, analysis, extractProgress, uploadProgress, error } = zipUpload
-
-    // 加载/分析中
-    if (phase === 'loading' || phase === 'analyzing') {
-      return (
-        <div className="card p-8 mb-6 flex flex-col items-center justify-center">
-          <Spinner className="h-10 w-10 text-indigo-500 mb-4" />
-          <p className="text-lg font-medium">
-            {phase === 'loading' ? '正在加载ZIP文件...' : '正在分析ZIP内容...'}
-          </p>
-        </div>
-      )
-    }
-
-    // 预览模式
-    if (phase === 'preview' && analysis && zipFile) {
-      return (
-        <>
-          <ZipPreview
-            analysis={analysis}
-            zipFileName={zipFile.name}
-            onConfirm={handleZipUploadConfirm}
-            onCancel={zipUpload.reset}
+        <form onSubmit={handleSubmit}>
+          <UploadDropzone
+            onFilesSelected={handleFilesSelected}
+            onFolderSelected={(files) => void handleFolderSelected(files)}
+            maxUploadCount={maxUploadCount}
           />
-          <ExpirySelector onChange={setExpiryMinutes} />
+
+          {/* 上传并发设置 */}
+          <div className="mb-6 flex items-center space-x-4">
+            <div className="flex items-center">
+              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">上传并发：</span>
+            </div>
+            <div className="flex-1">
+              <select
+                value={concurrency}
+                onChange={(e) => onConcurrencyChange?.(Number(e.target.value))}
+                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-green-500 dark:focus:ring-green-600 text-sm shadow-xs"
+              >
+                {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                  <option key={n} value={n}>{n} 个同时上传</option>
+                ))}
+              </select>
+            </div>
+          </div>
+
           <TagSelector
             selectedTags={selectedTags}
             availableTags={availableTags}
             onTagsChange={handleTagsChange}
             onNewTagCreated={fetchTags}
           />
-        </>
-      )
-    }
 
-    // 解压/上传中
-    if (phase === 'extracting' || phase === 'uploading' || phase === 'completed') {
-      return (
-        <ZipUploadProgress
-          phase={phase}
-          extractProgress={extractProgress}
-          uploadProgress={uploadProgress}
-          onCancel={zipUpload.cancel}
-        />
-      )
-    }
-
-    // 空闲状态 - 显示拖放区
-    return (
-      <>
-        <ZipUploadDropzone onFileSelected={handleZipFileSelected} />
-        {error && (
-          <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
-            <div className="flex items-center">
-              <ExclamationTriangleIcon className="h-5 w-5 text-red-500 mr-2" />
-              <p className="text-red-700 dark:text-red-300">{error}</p>
-            </div>
-          </div>
-        )}
-      </>
-    )
-  }
-
-  return (
-    <>
-      <div className="card p-8 mb-8">
-        <h2 className="text-2xl font-semibold mb-6 flex items-center">
-          <UploadIcon className="h-6 w-6 mr-2 text-indigo-500" />
-          上传图片
-        </h2>
-
-        {/* 模式切换 */}
-        <UploadModeToggle
-          mode={uploadMode}
-          onChange={handleModeChange}
-          disabled={isUploading || isZipProcessing}
-        />
-
-        {uploadMode === 'images' ? (
-          // 普通图片上传
-          <form onSubmit={handleSubmit}>
-            <UploadDropzone
-              onFilesSelected={handleFilesSelected}
-              maxUploadCount={maxUploadCount}
-            />
-
-            <ExpirySelector onChange={setExpiryMinutes} />
-
-            {/* 上传并发设置 */}
-            <div className="mb-6 flex items-center space-x-4">
-              <div className="flex items-center">
-                <span className="text-sm font-medium text-gray-700 dark:text-gray-300">上传并发：</span>
-              </div>
-              <div className="flex-1">
-                <select
-                  value={concurrency}
-                  onChange={(e) => onConcurrencyChange?.(Number(e.target.value))}
-                  className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm shadow-xs"
-                >
-                  {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
-                    <option key={n} value={n}>{n} 个同时上传</option>
-                  ))}
-                </select>
+          {exceedsLimit && (
+            <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800 shadow-xs">
+              <div className="flex items-start">
+                <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full mr-3 shrink-0">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">超出上传限制</p>
+                  <p className="text-sm text-amber-600 dark:text-amber-400">
+                    一次最多只能上传 <span className="font-medium">{maxUploadCount}</span> 张图片。已自动选择前 {maxUploadCount} 张。
+                  </p>
+                </div>
               </div>
             </div>
+          )}
 
-            <TagSelector
-              selectedTags={selectedTags}
-              availableTags={availableTags}
-              onTagsChange={handleTagsChange}
-              onNewTagCreated={fetchTags}
-            />
-
-            {exceedsLimit && (
-              <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800 shadow-xs">
-                <div className="flex items-start">
-                  <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full mr-3 shrink-0">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">超出上传限制</p>
-                    <p className="text-sm text-amber-600 dark:text-amber-400">
-                      一次最多只能上传 <span className="font-medium">{maxUploadCount}</span> 张图片。已自动选择前 {maxUploadCount} 张。
-                    </p>
-                  </div>
+          {oversizedFiles.length > 0 && (
+            <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 shadow-xs">
+              <div className="flex items-start">
+                <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full mr-3 shrink-0">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
+                </div>
+                <div>
+                  <p className="font-medium text-red-700 dark:text-red-300 mb-1">文件过大已跳过</p>
+                  <p className="text-sm text-red-600 dark:text-red-400 mb-2">
+                    以下文件超过 70MB 限制，已自动跳过：
+                  </p>
+                  <ul className="text-sm text-red-600 dark:text-red-400 list-disc list-inside">
+                    {oversizedFiles.map((name, index) => (
+                      <li key={index}>{name}</li>
+                    ))}
+                  </ul>
                 </div>
               </div>
-            )}
+            </div>
+          )}
 
-            {oversizedFiles.length > 0 && (
-              <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 shadow-xs">
-                <div className="flex items-start">
-                  <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full mr-3 shrink-0">
-                    <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
-                  </div>
-                  <div>
-                    <p className="font-medium text-red-700 dark:text-red-300 mb-1">文件过大已跳过</p>
-                    <p className="text-sm text-red-600 dark:text-red-400 mb-2">
-                      以下文件超过 70MB 限制，已自动跳过：
-                    </p>
-                    <ul className="text-sm text-red-600 dark:text-red-400 list-disc list-inside">
-                      {oversizedFiles.map((name, index) => (
-                        <li key={index}>{name}</li>
-                      ))}
-                    </ul>
-                  </div>
-                </div>
+          {selectedFiles.length > 0 && (
+            <div className="flex items-center justify-between mb-6">
+              <div className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
+                已选择 <span className="font-medium text-green-600 dark:text-green-400">{selectedFiles.length}</span> 张图片
               </div>
-            )}
-
-            {selectedFiles.length > 0 && (
-              <div className="flex items-center justify-between mb-6">
-                <div className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                  已选择 <span className="font-medium text-indigo-600 dark:text-indigo-400">{selectedFiles.length}</span> 张图片
-                </div>
+              <div className="flex items-center gap-2">
                 {onTogglePreview && (
                   <button
                     type="button"
                     onClick={onTogglePreview}
-                    className="px-4 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 rounded-lg transition-colors duration-200 flex items-center font-medium"
+                    className="px-4 py-2 text-sm bg-green-50 hover:bg-green-100 dark:bg-green-900/20 dark:hover:bg-green-900/30 text-green-600 dark:text-green-400 rounded-lg transition-colors duration-200 flex items-center font-medium"
                   >
                     <ImageIcon className="h-4 w-4 mr-1.5" />
                     {isPreviewOpen ? '隐藏文件列表' : '查看文件列表'}
                   </button>
                 )}
+                <button
+                  type="submit"
+                  disabled={isUploading}
+                  className="px-4 py-2 text-sm bg-green-500 hover:bg-green-600 text-white rounded-lg transition-colors duration-200 flex items-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isUploading ? (
+                    <>
+                      <Spinner className="h-4 w-4 mr-1.5" />
+                      上传中...
+                    </>
+                  ) : (
+                    <>
+                      <UploadIcon className="h-4 w-4 mr-1.5" />
+                      开始上传
+                    </>
+                  )}
+                </button>
               </div>
-            )}
-          </form>
-        ) : (
-          // ZIP批量上传
-          renderZipUploadContent()
-        )}
+            </div>
+          )}
+        </form>
       </div>
     </>
   )

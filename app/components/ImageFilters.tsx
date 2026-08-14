@@ -61,6 +61,7 @@ export default function ImageFilters({ onFilterChange, search = "", onSearchChan
     { value: "portrait", label: "纵向" },
   ], []);
 
+
   useEffect(() => {
     const fetchTags = async () => {
       try {
@@ -270,7 +271,6 @@ export default function ImageFilters({ onFilterChange, search = "", onSearchChan
           >
             <div className="space-y-3">
               {renderFilterOption("format")}
-              {renderFilterOption("orientation")}
               {renderFilterOption("tag")}
 
               {/* 排序 */}

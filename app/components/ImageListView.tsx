@@ -3,8 +3,8 @@
 import type { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { toCdnCgiImageUrl } from "../utils/cdnImage";
-import { getFormatLabel, getOrientationLabel } from "../utils/imageUtils";
-import { CheckIcon, TrashIcon } from "./ui/icons";
+import { getFormatLabel } from "../utils/imageUtils";
+import { CheckIcon, TrashIcon, EyeOpenIcon } from "./ui/icons";
 
 function formatBytes(bytes: number): string {
   if (!bytes) return "0 B";
@@ -42,7 +42,7 @@ interface ImageListViewProps {
   onToggleSelect: (id: string) => void;
   onDelete: (id: string) => void;
   onRename: (image: ImageFile) => void;
-  onExpiry: (image: ImageFile) => void;
+  onView?: (image: ImageFile) => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
@@ -56,7 +56,7 @@ export default function ImageListView({
   onToggleSelect,
   onDelete,
   onRename,
-  onExpiry,
+  onView,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
@@ -71,7 +71,6 @@ export default function ImageListView({
               <th className="px-4 py-3 w-10"></th>
               <th className="px-4 py-3">图片</th>
               <th className="px-4 py-3">格式</th>
-              <th className="px-4 py-3">方向</th>
               <th className="px-4 py-3">大小</th>
               <th className="px-4 py-3">上传时间</th>
               <th className="px-4 py-3">标签</th>
@@ -84,15 +83,17 @@ export default function ImageListView({
               return (
                 <tr
                   key={image.id}
-                  className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors ${
-                    selected ? "bg-indigo-50/60 dark:bg-indigo-900/20" : ""
+                  data-image-id={image.id}
+                  onClick={() => onView?.(image)}
+                  className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer ${
+                    selected ? "bg-green-50/60 dark:bg-green-900/20" : ""
                   }`}
                 >
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => onToggleSelect(image.id)}
                       className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
-                        selected ? "bg-indigo-500 border-indigo-500" : "border-gray-300 dark:border-gray-600"
+                        selected ? "bg-green-500 border-green-500" : "border-gray-300 dark:border-gray-600"
                       }`}
                     >
                       {selected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
@@ -121,7 +122,6 @@ export default function ImageListView({
                       {getFormatLabel(image.format)}
                     </span>
                   </td>
-                  <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{getOrientationLabel(image.orientation)}</td>
                   <td className="px-4 py-2 text-gray-600 dark:text-gray-300">{formatBytes(image.sizes?.original || 0)}</td>
                   <td className="px-4 py-2 text-gray-500 dark:text-gray-400 whitespace-nowrap">{formatDate(image.uploadTime)}</td>
                   <td className="px-4 py-2">
@@ -137,19 +137,20 @@ export default function ImageListView({
                       )}
                     </div>
                   </td>
-                  <td className="px-4 py-2">
+                  <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center gap-2">
                       <button
-                        onClick={() => onRename(image)}
-                        className="px-2 py-1 text-xs text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors"
+                        onClick={() => onView?.(image)}
+                        className="px-2 py-1 text-xs text-gray-600 dark:text-gray-400 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors flex items-center gap-1"
+                        title="查看图片详情"
                       >
-                        重命名
+                        <EyeOpenIcon className="h-4 w-4" />
                       </button>
                       <button
-                        onClick={() => onExpiry(image)}
-                        className="px-2 py-1 text-xs text-amber-600 dark:text-amber-400 rounded-lg hover:bg-amber-50 dark:hover:bg-amber-900/30 transition-colors"
+                        onClick={() => onRename(image)}
+                        className="px-2 py-1 text-xs text-green-600 dark:text-green-400 rounded-lg hover:bg-green-50 dark:hover:bg-green-900/30 transition-colors"
                       >
-                        过期
+                        重命名
                       </button>
                       <button
                         onClick={() => onDelete(image.id)}
@@ -171,7 +172,7 @@ export default function ImageListView({
           <button
             onClick={() => void fetchNextPage()}
             disabled={isFetchingNextPage}
-            className="px-5 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-lg font-medium disabled:opacity-60"
+            className="px-5 py-2 text-sm bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-300 rounded-lg font-medium disabled:opacity-60"
           >
             {isFetchingNextPage ? "加载中..." : "加载更多"}
           </button>

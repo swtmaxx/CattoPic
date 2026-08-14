@@ -15,10 +15,6 @@ function clampInt(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, Math.trunc(value)));
 }
 
-function isExpired(expiryTime?: unknown): boolean {
-  return typeof expiryTime === 'string' && Date.parse(expiryTime) <= Date.now();
-}
-
 // GET /api/images - List images with pagination and filters
 export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
@@ -47,7 +43,7 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
       totalPages: number;
     }
     const cached = await cache.get<ImagesListCache>(cacheKey);
-    if (cached && !cached.images.some((image) => isExpired(image.expiryTime))) {
+    if (cached) {
       return successResponse(cached);
     }
 
@@ -107,7 +103,7 @@ export async function imageDetailHandler(c: Context<{ Bindings: Env }>): Promise
       image: Record<string, unknown>;
     }
     const cached = await cache.get<ImageDetailCache>(cacheKey);
-    if (cached && !isExpired(cached.image.expiryTime)) {
+    if (cached) {
       return successResponse(cached);
     }
 
@@ -160,7 +156,7 @@ export async function updateImageHandler(c: Context<{ Bindings: Env }>): Promise
     const metadata = new MetadataService(c.env.DB);
 
     // Build updates object
-    const updates: { tags?: string[]; expiryTime?: string | null; originalName?: string } = {};
+    const updates: { tags?: string[]; originalName?: string } = {};
 
     if (body.tags !== undefined) {
       if (body.tags === null) {
@@ -177,19 +173,6 @@ export async function updateImageHandler(c: Context<{ Bindings: Env }>): Promise
       }
     }
 
-    if (body.expiryMinutes !== undefined) {
-      const expiryMinutes = Number(body.expiryMinutes);
-      if (!Number.isFinite(expiryMinutes)) {
-        return errorResponse('expiryMinutes must be a number');
-      }
-
-      if (expiryMinutes > 0) {
-        const expiry = new Date(Date.now() + expiryMinutes * 60 * 1000);
-        updates.expiryTime = expiry.toISOString();
-      } else {
-        updates.expiryTime = null;
-      }
-    }
 
     if (body.originalName !== undefined) {
       if (typeof body.originalName !== 'string' || body.originalName.trim().length === 0 || body.originalName.trim().length > 255) {

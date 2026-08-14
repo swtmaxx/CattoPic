@@ -13,7 +13,6 @@ export interface DeletionJob extends ImageDeletionTarget {
 
 interface ImageUpdateFields {
   tags?: string[];
-  expiryTime?: string | null;
   originalName?: string;
 }
 
@@ -91,14 +90,12 @@ export class MetadataService {
   }
 
   async getImage(id: string): Promise<ImageMetadata | null> {
-    const now = new Date().toISOString();
-
     // Batch: execute image and tags queries in parallel
     const [imageResult, tagsResult] = await this.db.batch([
       this.db.prepare(`
         SELECT * FROM images
-        WHERE id = ? AND (expiry_time IS NULL OR expiry_time > ?)
-      `).bind(id, now),
+        WHERE id = ?
+      `).bind(id),
       this.db.prepare(`
         SELECT t.name FROM tags t
         JOIN image_tags it ON t.id = it.tag_id
@@ -114,14 +111,12 @@ export class MetadataService {
   }
 
   async updateImage(id: string, updates: ImageUpdateFields): Promise<ImageMetadata | null> {
-    const now = new Date().toISOString();
-
     // Batch: get image and tags in parallel (avoid separate getImage call)
     const [imageResult, tagsResult] = await this.db.batch([
       this.db.prepare(`
         SELECT * FROM images
-        WHERE id = ? AND (expiry_time IS NULL OR expiry_time > ?)
-      `).bind(id, now),
+        WHERE id = ?
+      `).bind(id),
       this.db.prepare(`
         SELECT t.name FROM tags t
         JOIN image_tags it ON t.id = it.tag_id
@@ -135,7 +130,6 @@ export class MetadataService {
     const currentTags = ((tagsResult as D1Result<{ name: string }>).results || []).map(t => t.name);
     const statements: D1PreparedStatement[] = [];
     let finalTags = currentTags;
-    let finalExpiryTime = image.expiry_time;
 
     // Handle tag changes
     if (updates.tags !== undefined) {
@@ -170,14 +164,6 @@ export class MetadataService {
       }
     }
 
-    // Update expiry time
-    if (updates.expiryTime !== undefined) {
-      finalExpiryTime = updates.expiryTime;
-      statements.push(
-        this.db.prepare(`UPDATE images SET expiry_time = ? WHERE id = ?`)
-          .bind(finalExpiryTime, id)
-      );
-    }
 
     // Update original name
     if (updates.originalName !== undefined) {
@@ -194,7 +180,6 @@ export class MetadataService {
     // Return constructed metadata without re-reading from database
     return this.rowToMetadata({
       ...image,
-      expiry_time: finalExpiryTime,
       original_name: updates.originalName ?? image.original_name,
     }, finalTags);
   }
@@ -318,8 +303,8 @@ export class MetadataService {
   // === Image Queries ===
 
   async getImageIds(orientation?: string): Promise<string[]> {
-    let query = 'SELECT id FROM images WHERE (expiry_time IS NULL OR expiry_time > ?)';
-    const params: string[] = [new Date().toISOString()];
+    let query = 'SELECT id FROM images';
+    const params: string[] = [];
 
     if (orientation) {
       query += ' AND orientation = ?';
@@ -337,8 +322,8 @@ export class MetadataService {
     const offset = (page - 1) * limit;
 
     let baseQuery = 'FROM images i';
-    const whereConditions: string[] = ['(i.expiry_time IS NULL OR i.expiry_time > ?)'];
-    const params: (string | number)[] = [new Date().toISOString()];
+    const whereConditions: string[] = [];
+    const params: (string | number)[] = [];
 
     if (tag) {
       baseQuery += ' JOIN image_tags it ON i.id = it.image_id JOIN tags t ON it.tag_id = t.id';
@@ -412,8 +397,8 @@ export class MetadataService {
       ? 'JOIN image_tags it ON i.id = it.image_id JOIN tags t ON it.tag_id = t.id'
       : '';
 
-    const whereConditions: string[] = ['(i.expiry_time IS NULL OR i.expiry_time > ?)'];
-    const params: (string | number)[] = [new Date().toISOString()];
+    const whereConditions: string[] = [];
+    const params: (string | number)[] = [];
 
     // Tag filter (AND logic)
     if (hasTagFilter) {
@@ -491,54 +476,50 @@ export class MetadataService {
   // === Admin stats ===
 
   async getAdminStats(): Promise<AdminStats> {
-    const now = new Date().toISOString();
     const weekAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-    const [totalResult, formatResult, orientationResult, tagResult, expiredResult, trendResult, recentResult] = await this.db.batch([
+    const [totalResult, formatResult, orientationResult, tagResult, trendResult, recentResult] = await this.db.batch([
       this.db.prepare(`
         SELECT COUNT(*) as count, COALESCE(SUM(size_original), 0) as total
-        FROM images WHERE (expiry_time IS NULL OR expiry_time > ?)
-      `).bind(now),
+        FROM images
+      `),
       this.db.prepare(`
         SELECT format, COUNT(*) as count FROM images
-        WHERE (expiry_time IS NULL OR expiry_time > ?)
+
         GROUP BY format ORDER BY count DESC
-      `).bind(now),
+      `),
       this.db.prepare(`
         SELECT orientation, COUNT(*) as count FROM images
-        WHERE (expiry_time IS NULL OR expiry_time > ?)
+
         GROUP BY orientation
-      `).bind(now),
+      `),
       this.db.prepare(`
         SELECT t.name, COUNT(i.id) as count FROM tags t
         JOIN image_tags it ON t.id = it.tag_id
-        JOIN images i ON it.image_id = i.id AND (i.expiry_time IS NULL OR i.expiry_time > ?)
+        JOIN images i ON it.image_id = i.id
         GROUP BY t.id, t.name
         ORDER BY count DESC LIMIT 10
-      `).bind(now),
-      this.db.prepare(`
-        SELECT COUNT(*) as count FROM images WHERE expiry_time IS NOT NULL AND expiry_time < ?
-      `).bind(now),
+      `),
+
       this.db.prepare(`
         SELECT substr(upload_time, 1, 10) as date, COUNT(*) as count FROM images
         WHERE upload_time >= ?
         GROUP BY date ORDER BY date ASC
       `).bind(weekAgo),
       this.db.prepare(`
-        SELECT * FROM images WHERE (expiry_time IS NULL OR expiry_time > ?)
+        SELECT * FROM images
         ORDER BY upload_time DESC LIMIT 8
-      `).bind(now),
+      `),
     ]);
 
     const total = (totalResult as D1Result<{ count: number; total: number }>).results?.[0];
-    const expired = (expiredResult as D1Result<{ count: number }>).results?.[0];
     const recentRows = (recentResult as D1Result<ImageRow>).results || [];
     const recent = await this.enrichWithTags(recentRows);
 
     return {
       totalImages: total?.count || 0,
       totalStorageBytes: total?.total || 0,
-      expiredImages: expired?.count || 0,
+      expiredImages: 0,
       formatDistribution: (formatResult as D1Result<{ format: string; count: number }>).results || [],
       orientationDistribution: (orientationResult as D1Result<{ orientation: string; count: number }>).results || [],
       topTags: (tagResult as D1Result<{ name: string; count: number }>).results || [],
@@ -551,18 +532,16 @@ export class MetadataService {
 
   async getAllTags(options?: { limit?: number }): Promise<Tag[]> {
     const limit = options?.limit ?? 1000; // Sensible default to prevent unbounded queries
-    const now = new Date().toISOString();
 
     const result = await this.db.prepare(`
       SELECT t.name, COUNT(i.id) as count
       FROM tags t
       LEFT JOIN image_tags it ON t.id = it.tag_id
       LEFT JOIN images i ON it.image_id = i.id
-        AND (i.expiry_time IS NULL OR i.expiry_time > ?)
       GROUP BY t.id, t.name
       ORDER BY t.name
       LIMIT ?
-    `).bind(now, limit).all<{ name: string; count: number }>();
+    `).bind(limit).all<{ name: string; count: number }>();
 
     return result.results || [];
   }
@@ -574,15 +553,13 @@ export class MetadataService {
   }
 
   async renameTag(oldName: string, newName: string): Promise<number> {
-    const now = new Date().toISOString();
-
     // Get count of affected images
     const countResult = await this.db.prepare(`
       SELECT COUNT(i.id) as count FROM image_tags it
       JOIN tags t ON it.tag_id = t.id
       JOIN images i ON it.image_id = i.id
-      WHERE t.name = ? AND (i.expiry_time IS NULL OR i.expiry_time > ?)
-    `).bind(oldName, now).first<{ count: number }>();
+      WHERE t.name = ?
+    `).bind(oldName).first<{ count: number }>();
 
     // Rename the tag
     await this.db.prepare(`
@@ -608,14 +585,12 @@ export class MetadataService {
   }
 
   async getImagesByTag(tagName: string): Promise<ImageMetadata[]> {
-    const now = new Date().toISOString();
-
     const result = await this.db.prepare(`
       SELECT i.* FROM images i
       JOIN image_tags it ON i.id = it.image_id
       JOIN tags t ON it.tag_id = t.id
-      WHERE t.name = ? AND (i.expiry_time IS NULL OR i.expiry_time > ?)
-    `).bind(tagName, now).all<ImageRow>();
+      WHERE t.name = ?
+    `).bind(tagName).all<ImageRow>();
 
     return this.enrichWithTags(result.results || []);
   }

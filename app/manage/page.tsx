@@ -48,6 +48,13 @@ export default function Manage() {
   const [listThumbSize, setListThumbSize] = useState(56);
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [boxSelectMode, setBoxSelectMode] = useState(false);
+  const [batchCopyFormat, setBatchCopyFormat] = useState<"original" | "webp" | "avif">("webp");
+  const [dragRect, setDragRect] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const dragStateRef = useRef<{ startX: number; startY: number; active: boolean } | null>(null);
+  const dragRectRef = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
+  const suppressNextClickRef = useRef(false);
 
   const authenticated = status?.authenticated === true;
 
@@ -158,6 +165,100 @@ export default function Manage() {
     }
   }, [images]);
 
+  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
+    if (e.button !== 0) return;
+    const target = e.target as HTMLElement;
+    if (target.closest("button, a, input, select, textarea")) return;
+    if (!boxSelectMode && target.closest("[data-image-id]")) return;
+    dragStateRef.current = { startX: e.clientX, startY: e.clientY, active: true };
+    const rect = { x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY };
+    dragRectRef.current = rect;
+    setDragRect(rect);
+  }, [boxSelectMode]);
+
+  const handleDragMouseMove = useCallback((e: React.MouseEvent) => {
+    const state = dragStateRef.current;
+    if (!state?.active) return;
+    const rect = { x1: state.startX, y1: state.startY, x2: e.clientX, y2: e.clientY };
+    dragRectRef.current = rect;
+    setDragRect(rect);
+  }, []);
+
+  const handleDragMouseUp = useCallback(() => {
+    const state = dragStateRef.current;
+    if (!state?.active) return;
+    state.active = false;
+    const rect = dragRectRef.current;
+    setDragRect(null);
+    if (!rect) return;
+    const moved = Math.abs(rect.x2 - rect.x1) > 5 || Math.abs(rect.y2 - rect.y1) > 5;
+    if (!moved) return;
+
+    suppressNextClickRef.current = true;
+    const container = listContainerRef.current;
+    if (!container) return;
+    const els = container.querySelectorAll<HTMLElement>("[data-image-id]");
+    const selected = new Set<string>();
+    const rx1 = Math.min(rect.x1, rect.x2);
+    const rx2 = Math.max(rect.x1, rect.x2);
+    const ry1 = Math.min(rect.y1, rect.y2);
+    const ry2 = Math.max(rect.y1, rect.y2);
+    els.forEach((el) => {
+      const id = el.getAttribute("data-image-id");
+      if (!id) return;
+      const r = el.getBoundingClientRect();
+      if (r.left < rx2 && r.right > rx1 && r.top < ry2 && r.bottom > ry1) {
+        selected.add(id);
+      }
+    });
+    if (selected.size > 0) {
+      setSelectedIds(selected);
+    }
+  }, []);
+
+  const handleDragMouseLeave = useCallback(() => {
+    if (dragStateRef.current?.active) {
+      dragStateRef.current.active = false;
+      dragRectRef.current = null;
+      setDragRect(null);
+    }
+  }, []);
+
+  const handleImageClick = useCallback((image: ImageFile) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    if (boxSelectMode) {
+      toggleSelect(image.id);
+      return;
+    }
+    setSelectedImage(image);
+    setIsModalOpen(true);
+  }, [boxSelectMode, toggleSelect]);
+
+  const handleBatchCopyLinks = useCallback(async () => {
+    if (selectedIds.size === 0) return;
+    const items = images.filter((img) => selectedIds.has(img.id));
+    if (items.length === 0) return;
+    const urls = items.map((img) => {
+      const url =
+        batchCopyFormat === "original"
+          ? img.urls?.original
+          : batchCopyFormat === "webp"
+          ? img.urls?.webp
+          : img.urls?.avif;
+      return getFullUrl(url || img.urls?.original || "");
+    });
+    const ok = await copyToClipboard(urls.join("\n"));
+    const label = batchCopyFormat === "original" ? "原图" : batchCopyFormat === "webp" ? "WebP" : "AVIF";
+    if (ok) {
+      showToast(`已复制 ${items.length} 条${label}链接`, "success");
+    } else {
+      showToast("复制失败", "error");
+    }
+  }, [selectedIds, images, batchCopyFormat]);
+
   const removeSelectedFromCache = useCallback(() => {
     queryClient.setQueryData<ImageFile[]>(queryKeys.images.recentUploads(), (old) => {
       if (!Array.isArray(old)) return old;
@@ -229,26 +330,6 @@ export default function Manage() {
     );
   }, [updateImageMutation]);
 
-  // 修改过期时间
-  const handleExpiry = useCallback((image: ImageFile) => {
-    const input = window.prompt(
-      "输入新的过期时间（分钟，0 = 永不过期）：",
-      image.expiryTime ? String(Math.ceil((new Date(image.expiryTime).getTime() - Date.now()) / 60000)) : "0"
-    );
-    if (input === null) return;
-    const minutes = Number(input);
-    if (!Number.isFinite(minutes) || minutes < 0) {
-      showToast("请输入有效的分钟数", "error");
-      return;
-    }
-    updateImageMutation.mutate(
-      { id: image.id, data: { expiryMinutes: minutes } },
-      {
-        onSuccess: () => showToast(minutes > 0 ? `过期时间已设为 ${minutes} 分钟` : "已改为永不过期", "success"),
-        onError: () => showToast("修改过期时间失败", "error"),
-      }
-    );
-  }, [updateImageMutation]);
 
   const handleLogout = useCallback(async () => {
     await logout();
@@ -339,6 +420,17 @@ export default function Manage() {
             <CopyIcon className="h-4 w-4" />
             复制全部 Markdown
           </button>
+          <button
+            onClick={() => setBoxSelectMode((v) => !v)}
+            className={`px-4 py-3 text-sm font-medium transition-colors rounded-xl ${
+              boxSelectMode
+                ? "bg-green-500 text-white shadow-sm"
+                : "bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+            }`}
+            title="开启后拖拽框选批量选择，点击图片切换选择"
+          >
+            框选
+          </button>
           <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
             <button
               onClick={() => setView("grid")}
@@ -408,6 +500,19 @@ export default function Manage() {
             <button onClick={handleBatchTag} className="px-3 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-lg flex items-center gap-1.5">
               <TagIcon className="h-4 w-4" /> 批量打标签
             </button>
+            <select
+              value={batchCopyFormat}
+              onChange={(e) => setBatchCopyFormat(e.target.value as "original" | "webp" | "avif")}
+              className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300"
+              title="选择复制链接的格式"
+            >
+              <option value="original">原图</option>
+              <option value="webp">WebP</option>
+              <option value="avif">AVIF</option>
+            </select>
+            <button onClick={() => void handleBatchCopyLinks()} className="px-3 py-2 text-sm bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-300 rounded-lg flex items-center gap-1.5">
+              <CopyIcon className="h-4 w-4" /> 复制链接
+            </button>
             <button onClick={handleBatchDelete} className="px-3 py-2 text-sm bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-1.5">
               <TrashIcon className="h-4 w-4" /> 批量删除
             </button>
@@ -421,16 +526,21 @@ export default function Manage() {
         </div>
       ) : (
         <>
+          <div
+            ref={listContainerRef}
+            onMouseDown={handleDragMouseDown}
+            onMouseMove={handleDragMouseMove}
+            onMouseUp={handleDragMouseUp}
+            onMouseLeave={handleDragMouseLeave}
+            className="relative"
+          >
           {images.length > 0 ? (
             <>
               {view === "grid" ? (
                 <VirtualImageMasonry
                   images={images}
                   layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
-                  onImageClick={(image) => {
-                    setSelectedImage(image);
-                    setIsModalOpen(true);
-                  }}
+                  onImageClick={handleImageClick}
                   onDelete={handleDelete}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
@@ -447,7 +557,7 @@ export default function Manage() {
                   onToggleSelect={toggleSelect}
                   onDelete={handleDelete}
                   onRename={handleRename}
-                  onExpiry={handleExpiry}
+                  onView={handleImageClick}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   fetchNextPage={fetchNextPage}
@@ -475,6 +585,18 @@ export default function Manage() {
               <p className="mt-2 text-sm text-gray-400 dark:text-gray-500">请上传图片或调整筛选条件</p>
             </div>
           )}
+          {dragRect && (
+            <div
+              className="fixed z-50 pointer-events-none border-2 border-green-500 bg-green-500/20"
+              style={{
+                left: Math.min(dragRect.x1, dragRect.x2),
+                top: Math.min(dragRect.y1, dragRect.y2),
+                width: Math.abs(dragRect.x2 - dragRect.x1),
+                height: Math.abs(dragRect.y2 - dragRect.y1),
+              }}
+            />
+          )}
+          </div>
         </>
       )}
 
@@ -487,7 +609,6 @@ export default function Manage() {
         }}
         onDelete={handleDelete}
         onRename={(image) => handleRename(image as ImageFile)}
-        onExpiry={(image) => handleExpiry(image as ImageFile)}
       />
 
       <TagManagementModal isOpen={showTagModal} onClose={handleTagModalClose} />

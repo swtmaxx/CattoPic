@@ -1,15 +1,17 @@
 'use client'
 
 import { useRef, useEffect, useState } from 'react'
-import { UploadIcon } from '../ui/icons'
+import { UploadIcon, FolderIcon } from '../ui/icons'
 
 interface UploadDropzoneProps {
   onFilesSelected: (files: File[]) => void
+  onFolderSelected?: (files: File[]) => void
   maxUploadCount: number
 }
 
-export default function UploadDropzone({ onFilesSelected, maxUploadCount }: UploadDropzoneProps) {
+export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxUploadCount }: UploadDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const folderInputRef = useRef<HTMLInputElement>(null)
   const [isPasteActive, setIsPasteActive] = useState(false)
 
   // 监听粘贴事件
@@ -61,6 +63,15 @@ export default function UploadDropzone({ onFilesSelected, maxUploadCount }: Uplo
     }
   }
 
+  const handleFolderSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (files) {
+      onFolderSelected?.(Array.from(files))
+    }
+    // 清空 input，允许再次选择同一文件夹
+    e.target.value = ''
+  }
+
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     onFilesSelected(Array.from(e.dataTransfer.files))
@@ -79,17 +90,17 @@ export default function UploadDropzone({ onFilesSelected, maxUploadCount }: Uplo
   return (
     <div
       className={`drop-zone mb-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
-        isPasteActive ? 'ring-2 ring-indigo-500 ring-offset-2 dark:ring-offset-slate-900' : ''
+        isPasteActive ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-slate-900' : ''
       }`}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div className="mb-4 bg-indigo-100 dark:bg-indigo-900/50 p-4 rounded-full">
-        <UploadIcon className="h-10 w-10 text-indigo-500" />
+      <div className="mb-4 bg-green-100 dark:bg-green-900/50 p-4 rounded-full">
+        <UploadIcon className="h-10 w-10 text-green-500" />
       </div>
       <p className="text-lg font-medium mb-2">拖放多张图片到这里</p>
-      <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">点击选择文件或 Ctrl+V 粘贴图片</p>
+      <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">点击选择图片或 Ctrl+V 粘贴图片</p>
       <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-4">最多可选择 {maxUploadCount} 张图片</p>
       <input
         type="file"
@@ -99,13 +110,33 @@ export default function UploadDropzone({ onFilesSelected, maxUploadCount }: Uplo
         multiple
         onChange={handleFileSelect}
       />
-      <button
-        type="button"
-        onClick={() => fileInputRef.current?.click()}
-        className="btn-primary px-4 py-2"
-      >
-        选择图片
-      </button>
+      <input
+        type="file"
+        ref={folderInputRef}
+        className="hidden"
+        multiple
+        onChange={handleFolderSelect}
+        {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
+      />
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="btn-primary px-4 py-2"
+        >
+          选择图片
+        </button>
+        {onFolderSelected && (
+          <button
+            type="button"
+            onClick={() => folderInputRef.current?.click()}
+            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200 flex items-center gap-1.5"
+          >
+            <FolderIcon className="h-4 w-4" />
+            选择文件夹
+          </button>
+        )}
+      </div>
     </div>
   )
-} 
+}

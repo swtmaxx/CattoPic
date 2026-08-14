@@ -387,7 +387,7 @@ export function useUpdateImage() {
       data,
     }: {
       id: string;
-      data: { tags?: string[]; expiryMinutes?: number; originalName?: string };
+      data: { tags?: string[]; originalName?: string };
     }) => {
       const response = await api.put<UpdateResponse>(`/api/images/${id}`, data);
       if (!response.success) {

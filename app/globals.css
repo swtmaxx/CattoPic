@@ -23,9 +23,20 @@
 
   --background-image-gradient-primary: linear-gradient(
     135deg,
-    #6366f1,
-    #8b5cf6
+    #22c55e,
+    #16a34a
   );
+
+  --color-indigo-50: #f0fdf4;
+  --color-indigo-100: #dcfce7;
+  --color-indigo-200: #bbf7d0;
+  --color-indigo-300: #86efac;
+  --color-indigo-400: #4ade80;
+  --color-indigo-500: #22c55e;
+  --color-indigo-600: #16a34a;
+  --color-indigo-700: #15803d;
+  --color-indigo-800: #166534;
+  --color-indigo-900: #14532d;
 
   --animate-slide-in-right: slideInRight 0.3s ease-out;
 
@@ -132,8 +143,8 @@
     --light-card-bg: 255, 255, 255;
     --light-card-border: 229, 231, 235;
     --light-hover: 243, 244, 246;
-    --light-primary: 99, 102, 241;
-    --light-primary-hover: 79, 70, 229;
+    --light-primary: 34, 197, 94;
+    --light-primary-hover: 22, 163, 74;
   }
 
   /* 暗色主题变量 */
@@ -144,8 +155,8 @@
     --dark-card-bg: 31, 41, 55;
     --dark-card-border: 55, 65, 81;
     --dark-hover: 55, 65, 81;
-    --dark-primary: 99, 102, 241;
-    --dark-primary-hover: 79, 70, 229;
+    --dark-primary: 34, 197, 94;
+    --dark-primary-hover: 22, 163, 74;
   }
 
   /* 自定义滚动条 */

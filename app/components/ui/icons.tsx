@@ -62,7 +62,8 @@ import {
   Hash as HashIcon,
   Code as CodeIcon,
   Archive as ArchiveIcon,
-  Package as PackageIcon
+  Package as PackageIcon,
+  Folder as FolderIcon
 } from 'lucide-react';
 
 export {
@@ -129,7 +130,8 @@ export {
   HashIcon, // 哈希图标 - 编码格式
   CodeIcon, // 代码图标 - Markdown格式
   ArchiveIcon, // 归档图标 - 压缩格式
-  PackageIcon // 包装图标 - 打包格式
+  PackageIcon, // 包装图标 - 打包格式
+  FolderIcon // 文件夹图标 - 文件夹上传
 };
 
 // 状态图标 - 为不同类型的状态消息提供图标
