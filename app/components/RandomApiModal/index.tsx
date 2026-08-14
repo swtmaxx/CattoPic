@@ -134,7 +134,7 @@ export default function RandomApiModal({ isOpen, onClose }: RandomApiModalProps)
             {/* 标题栏 */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
               <div className="flex items-center">
-                <div className="bg-gradient-to-r from-indigo-500 to-purple-500 p-3 rounded-full mr-4">
+                <div className="bg-indigo-500 p-3 rounded-full mr-4">
                   <Link2Icon className="h-6 w-6 text-white" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">随机图 API 生成器</h2>

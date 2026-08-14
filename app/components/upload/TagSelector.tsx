@@ -87,7 +87,7 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
             <button
               type="button"
               onClick={handleAddTag}
-              className="px-3 py-2 rounded-r-lg bg-linear-to-r from-indigo-500 to-purple-500 hover:from-indigo-600 hover:to-purple-600 text-white font-medium transition-colors duration-200 text-sm flex items-center"
+              className="px-3 py-2 rounded-r-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-colors duration-200 text-sm flex items-center"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
@@ -100,7 +100,7 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
           {selectedTags.map(tag => (
             <div
               key={tag}
-              className="bg-linear-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center shadow-xs"
+              className="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center shadow-xs"
             >
               <span>{tag}</span>
               <button

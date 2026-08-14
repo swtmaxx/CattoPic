@@ -37,7 +37,7 @@ export default function OrientationSelector({ value, onChange }: OrientationSele
               {isSelected && (
                 <motion.div
                   layoutId="orientation-bg"
-                  className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg"
+                  className="absolute inset-0 bg-indigo-500 rounded-lg"
                   transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 />
               )}

@@ -58,7 +58,7 @@ export default function TagSelector({
                   className={`
                     px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200
                     ${isIncluded
-                      ? 'bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-md'
+                      ? 'bg-emerald-500 text-white shadow-md'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }
                     ${state === 'exclude' ? 'opacity-40' : ''}
@@ -107,7 +107,7 @@ export default function TagSelector({
                   className={`
                     px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200
                     ${isExcluded
-                      ? 'bg-gradient-to-r from-red-500 to-rose-500 text-white shadow-md'
+                      ? 'bg-red-500 text-white shadow-md'
                       : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
                     }
                     ${state === 'include' ? 'opacity-40' : ''}

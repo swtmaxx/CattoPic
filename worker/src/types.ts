@@ -195,5 +195,5 @@ export interface AdminStats {
   orientationDistribution: Array<{ orientation: string; count: number }>;
   topTags: Array<{ name: string; count: number }>;
   dailyTrend: Array<{ date: string; count: number }>;
-  recentUploads: ImageMetadata[];
+  recentUploads: Array<ImageMetadata & { urls?: { original: string; webp: string; avif: string } }>;
 }

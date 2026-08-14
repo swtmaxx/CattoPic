@@ -272,7 +272,7 @@ export default function UploadSection({
           />
 
           {exceedsLimit && (
-            <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-amber-50 to-yellow-50 dark:from-amber-900/20 dark:to-yellow-900/20 border border-amber-200 dark:border-amber-800 shadow-xs">
+            <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 shadow-xs">
               <div className="flex items-start">
                 <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full mr-3 shrink-0">
                   <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
@@ -288,7 +288,7 @@ export default function UploadSection({
           )}
 
           {oversizedFiles.length > 0 && (
-            <div className="mb-6 p-4 rounded-xl bg-linear-to-r from-red-50 to-orange-50 dark:from-red-900/20 dark:to-orange-900/20 border border-red-200 dark:border-red-800 shadow-xs">
+            <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 shadow-xs">
               <div className="flex items-start">
                 <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full mr-3 shrink-0">
                   <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />

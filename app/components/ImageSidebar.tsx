@@ -183,7 +183,7 @@ const ImageSidebar = React.memo(function ImageSidebar({
                   />
                 )}
               </div>
-              <div className="absolute inset-0 bg-linear-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               <div className="absolute top-1 right-1">
                 <span className="text-xs px-1.5 py-0.5 bg-green-500/80 text-white rounded-full">
                   完成
@@ -234,7 +234,7 @@ const ImageSidebar = React.memo(function ImageSidebar({
             className="fixed top-0 right-0 w-full sm:w-96 h-full bg-white dark:bg-slate-900 shadow-xl z-30 border-l border-slate-200 dark:border-slate-700 overflow-hidden flex flex-col"
           >
             {/* 侧边栏头部 */}
-            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-linear-to-r from-indigo-500 to-purple-600 text-white">
+            <div className="flex items-center justify-between p-4 border-b border-slate-200 dark:border-slate-700 bg-indigo-600 text-white">
               <h2 className="text-lg font-semibold flex items-center">
                 <ImageIcon className="h-5 w-5 mr-2 text-white opacity-90" />
                 上传结果 ({results.length})

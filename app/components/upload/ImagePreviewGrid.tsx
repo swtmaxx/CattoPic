@@ -17,7 +17,7 @@ interface ImagePreviewGridProps {
 
 export default function ImagePreviewGrid({ previews, onRemoveFile, onRemoveAll }: ImagePreviewGridProps) {
   return (
-    <div className="mb-6 bg-linear-to-br from-white to-gray-50 dark:from-slate-800 dark:to-slate-900 rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700">
+    <div className="mb-6 bg-white dark:bg-slate-800 rounded-xl p-6 shadow-md border border-gray-100 dark:border-gray-700">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium flex items-center text-gray-800 dark:text-gray-200">
           <ImageIcon className="h-5 w-5 mr-2 text-indigo-500" />
@@ -44,7 +44,7 @@ export default function ImagePreviewGrid({ previews, onRemoveFile, onRemoveAll }
                   fill
                   className="object-cover"
                 />
-                <div className="absolute inset-0 bg-linear-to-t from-black/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-all duration-200"></div>
+                <div className="absolute inset-0 bg-black/30 opacity-0 group-hover:opacity-100 transition-all duration-200"></div>
                 <button
                   type="button"
                   onClick={() => onRemoveFile(preview.id)}

@@ -1,6 +1,7 @@
 import type { Context } from 'hono';
 import type { Env, Config, AdminStats, CompressionOptions } from '../types';
 import { MetadataService } from '../services/metadata';
+import { buildImageUrls } from '../utils/imageTransform';
 import { CacheService, CacheKeys, CACHE_TTL } from '../services/cache';
 import { processPendingDeletionJobs } from '../services/deletion';
 import { successResponse, errorResponse } from '../utils/response';
@@ -170,6 +171,18 @@ export async function statsHandler(c: Context<{ Bindings: Env }>): Promise<Respo
   try {
     const metadata = new MetadataService(c.env.DB);
     const stats: AdminStats = await metadata.getAdminStats();
+    const baseUrl = c.env.R2_PUBLIC_URL;
+    stats.recentUploads = stats.recentUploads.map((img) => ({
+      ...img,
+      urls: buildImageUrls({
+        baseUrl,
+        image: img,
+        options: {
+          generateWebp: !!img.paths.webp,
+          generateAvif: !!img.paths.avif,
+        },
+      }),
+    }));
     return successResponse({ stats });
   } catch (err) {
     console.error('Stats handler error:', err);

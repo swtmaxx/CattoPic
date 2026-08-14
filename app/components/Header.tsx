@@ -33,11 +33,11 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
     <div className="relative z-40 flex items-center justify-between mb-10">
       <div className="flex items-center">
         <Link href="/" className="mr-4">
-          <div className="bg-gradient-primary w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12 hover:rotate-0 transition-transform duration-300">
+          <div className="bg-green-500 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12 hover:rotate-0 transition-transform duration-300">
             <ImageIcon className="h-8 w-8 text-white" />
           </div>
         </Link>
-        <h1 className="text-4xl font-bold bg-clip-text text-transparent bg-gradient-primary pb-1">
+        <h1 className="text-4xl font-bold text-gray-900 dark:text-white pb-1">
           {getTitle()}
         </h1>
       </div>

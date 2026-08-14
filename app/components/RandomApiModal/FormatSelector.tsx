@@ -38,7 +38,7 @@ export default function FormatSelector({ value, onChange }: FormatSelectorProps)
               {isSelected && (
                 <motion.div
                   layoutId="format-bg"
-                  className="absolute inset-0 bg-gradient-to-r from-indigo-500 to-purple-500 rounded-lg"
+                  className="absolute inset-0 bg-indigo-500 rounded-lg"
                   transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 />
               )}

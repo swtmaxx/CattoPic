@@ -40,7 +40,7 @@ export default function TagItem({
       <div className="flex-1 grid grid-cols-12 gap-4 items-center">
         {/* 标签名称 */}
         <div className="col-span-6 flex items-center space-x-2">
-          <span className="bg-linear-to-r from-indigo-500 to-purple-500 text-white px-3 py-1 rounded-full text-sm font-medium">
+          <span className="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-medium">
             {tag.name}
           </span>
         </div>

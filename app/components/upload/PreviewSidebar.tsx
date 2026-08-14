@@ -23,7 +23,7 @@ interface PreviewSidebarProps {
   onRemoveAll: () => void
   isOpen: boolean
   onClose: () => void
-  onUpload: () => void
+  onUpload: (files: { id: string; file: File }[]) => void
   onCancelUpload: () => void
 }
 
@@ -246,7 +246,6 @@ export default function PreviewSidebar({
                   // 空闲或完成时显示清除按钮
                   <button
                     onClick={onRemoveAll}
-                    disabled={phase === 'completed' && errorCount === 0}
                     className="px-4 py-2 flex items-center justify-center bg-white hover:bg-slate-100 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg transition-colors duration-200 font-medium border border-slate-200 dark:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <TrashIcon className="h-4 w-4 mr-2" />
@@ -255,8 +254,8 @@ export default function PreviewSidebar({
                 )}
 
                 <button
-                  onClick={onUpload}
-                  disabled={uploading || (phase === 'completed' && errorCount === 0)}
+                  onClick={() => onUpload(files.map((f) => ({ id: f.id, file: f.file })))}
+                  disabled={uploading}
                   className="flex-1 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors duration-200 font-medium flex items-center justify-center disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {phase === 'uploading' ? (

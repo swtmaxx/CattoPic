@@ -171,6 +171,7 @@ export default function Manage() {
     if (target.closest("button, a, input, select, textarea")) return;
     if (!boxSelectMode && target.closest("[data-image-id]")) return;
     dragStateRef.current = { startX: e.clientX, startY: e.clientY, active: true };
+    e.preventDefault();
     const rect = { x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY };
     dragRectRef.current = rect;
     setDragRect(rect);
@@ -427,9 +428,9 @@ export default function Manage() {
                 ? "bg-green-500 text-white shadow-sm"
                 : "bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
             }`}
-            title="开启后拖拽框选批量选择，点击图片切换选择"
+            title="开启批量管理模式：拖拽框选，点击图片切换选择"
           >
-            框选
+            批量管理
           </button>
           <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
             <button
@@ -532,7 +533,7 @@ export default function Manage() {
             onMouseMove={handleDragMouseMove}
             onMouseUp={handleDragMouseUp}
             onMouseLeave={handleDragMouseLeave}
-            className="relative"
+            className="relative select-none"
           >
           {images.length > 0 ? (
             <>
@@ -578,7 +579,7 @@ export default function Manage() {
             </>
           ) : (
             <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-2xl shadow-[0_2px_12px_-3px_rgba(0,0,0,0.08),0_4px_24px_-8px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] p-8 text-gray-500 dark:text-gray-400 border border-gray-200/80 dark:border-gray-700 ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-700 dark:to-gray-800 mb-4">
+              <div className="p-4 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
                 <ImageIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
               </div>
               <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">暂无图片</p>

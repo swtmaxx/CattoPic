@@ -34,7 +34,7 @@ const PrimaryUrlCard = ({
 }) => {
   const colorClasses: Record<string, { bg: string; border: string; iconBg: string; icon: string; button: string; buttonHover: string }> = {
     purple: {
-      bg: 'bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-violet-950/40 dark:via-purple-950/30 dark:to-fuchsia-950/20',
+      bg: 'bg-violet-50 dark:bg-violet-950/40',
       border: 'border-violet-200/80 dark:border-violet-800/60',
       iconBg: 'bg-violet-100 dark:bg-violet-900/60',
       icon: 'text-violet-600 dark:text-violet-400',
@@ -42,7 +42,7 @@ const PrimaryUrlCard = ({
       buttonHover: 'ring-violet-500/30'
     },
     blue: {
-      bg: 'bg-gradient-to-br from-blue-50 via-sky-50 to-cyan-50 dark:from-blue-950/40 dark:via-sky-950/30 dark:to-cyan-950/20',
+      bg: 'bg-blue-50 dark:bg-blue-950/40',
       border: 'border-blue-200/80 dark:border-blue-800/60',
       iconBg: 'bg-blue-100 dark:bg-blue-900/60',
       icon: 'text-blue-600 dark:text-blue-400',
@@ -57,7 +57,7 @@ const PrimaryUrlCard = ({
     <div className={`relative overflow-hidden rounded-xl border ${colors.border} ${colors.bg} p-4 transition-all duration-200 hover:shadow-md`}>
       {/* 推荐标签 */}
       <div className="absolute top-0 right-0">
-        <div className="bg-gradient-to-l from-violet-500 to-purple-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-lg shadow-sm">
+        <div className="bg-violet-500 text-white text-[10px] font-bold uppercase tracking-wider px-3 py-1 rounded-bl-lg shadow-sm">
           推荐
         </div>
       </div>

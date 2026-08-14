@@ -268,7 +268,7 @@ const ImageCard = React.memo(function ImageCard({
         onContextMenu={handleContextMenu}
       >
         <div
-          className="relative overflow-hidden bg-gradient-to-br from-gray-100 to-gray-50 dark:from-gray-900 dark:to-gray-800 w-full"
+          className="relative overflow-hidden bg-gray-100 dark:bg-gray-800 w-full"
           style={{ aspectRatio }}
         >
           {isGif || isSvg || isAvif ? (
@@ -302,7 +302,7 @@ const ImageCard = React.memo(function ImageCard({
 
           {/* Image info overlay */}
           <div
-            className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-linear-to-b from-black/60 to-transparent text-white transition-opacity duration-300 ${
+            className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-black/40 text-white transition-opacity duration-300 ${
               isLoading ? "opacity-0" : "opacity-100"
             }`}
           >

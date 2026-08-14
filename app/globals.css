@@ -195,12 +195,12 @@
     body {
         font-family: Inter, "Noto Sans SC", system-ui, -apple-system, sans-serif;
         font-weight: 700;
-        @apply bg-gradient-to-br from-slate-50 via-gray-50 to-slate-100 text-light-text-primary transition-colors duration-300;
+        @apply bg-slate-50 text-light-text-primary transition-colors duration-300;
         min-height: 100vh;
     }
 
     .dark body {
-        @apply bg-gradient-to-br from-slate-950 via-gray-900 to-slate-900 text-dark-text-primary;
+        @apply bg-slate-950 text-dark-text-primary;
     }
 }
 
@@ -277,7 +277,7 @@
 
 /* Logo渐变 */
 .logo-gradient {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: #22c55e;
 }
 
 /* 动态背景 */

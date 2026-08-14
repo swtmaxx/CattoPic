@@ -70,7 +70,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
             {/* 头部 - 渐变背景 */}
             <div className="relative overflow-hidden">
               {/* 背景装饰 */}
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500 via-purple-500 to-pink-500 opacity-90" />
+              <div className="absolute inset-0 bg-green-600 opacity-90" />
               <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
 
               <div className="relative px-6 py-5">
@@ -101,7 +101,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
               {/* 链接区域 - 主要内容 */}
               <div className="px-6 py-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1 h-5 rounded-full bg-gradient-to-b from-violet-500 to-purple-500" />
+                  <div className="w-1 h-5 rounded-full bg-violet-500" />
                   <h4 className="text-sm font-semibold text-gray-900 dark:text-white">快速复制</h4>
                 </div>
                 <ImageUrls image={image} />

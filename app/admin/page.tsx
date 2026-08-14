@@ -36,9 +36,9 @@ function toImageFile(img: AdminStats["recentUploads"][number]): ImageFile {
     paths: { original: img.paths.original, webp: img.paths.webp, avif: img.paths.avif },
     sizes: { original: img.sizes.original, webp: img.sizes.webp, avif: img.sizes.avif },
     urls: {
-      original: getFullUrl(img.paths.original),
-      webp: img.paths.webp ? getFullUrl(img.paths.webp) : "",
-      avif: img.paths.avif ? getFullUrl(img.paths.avif) : "",
+      original: img.urls?.original || getFullUrl(img.paths.original),
+      webp: img.urls?.webp || (img.paths.webp ? getFullUrl(img.paths.webp) : ""),
+      avif: img.urls?.avif || (img.paths.avif ? getFullUrl(img.paths.avif) : ""),
     },
   };
 }
@@ -243,7 +243,7 @@ export default function AdminDashboard() {
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={getFullUrl(img.paths.original)}
+                      src={img.urls?.original || getFullUrl(img.paths.original)}
                       alt={img.originalName}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                       loading="lazy"

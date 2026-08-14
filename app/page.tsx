@@ -295,8 +295,6 @@ export default function Home() {
       primeImagesListCache(resultsWithIds)
       invalidateImages()
 
-      // 重置文件详情
-      setFileDetails([])
     } catch (error) {
       if (error instanceof Error && error.name === 'AbortError') {
         setStatus({
@@ -471,7 +469,7 @@ export default function Home() {
         onRemoveAll={handleRemoveAllFiles}
         isOpen={showPreviewSidebar}
         onClose={() => setShowPreviewSidebar(false)}
-        onUpload={handleUpload}
+        onUpload={(files) => handleUpload(files)}
         onCancelUpload={handleCancelUpload}
       />
 
