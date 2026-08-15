@@ -44,17 +44,19 @@ const getFallbackAspectRatio = (orientation: string): string => {
 
 interface ImageCardProps {
   image: ImageFile;
-  onClick: (image: ImageFile) => void;
+  onClick: (image: ImageFile, event: React.MouseEvent) => void;
+  onDoubleClick?: (image: ImageFile) => void;
   onDelete: (id: string) => Promise<void>;
   displayWidth: number;
   selectable?: boolean;
   selected?: boolean;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: (id: string, event?: React.MouseEvent) => void;
 }
 
 const ImageCard = React.memo(function ImageCard({
   image,
   onClick,
+  onDoubleClick,
   onDelete,
   displayWidth,
   selectable = false,
@@ -96,8 +98,8 @@ const ImageCard = React.memo(function ImageCard({
   }, [displayWidth, image.urls, isGif, isSvg, isAvif]);
 
   const handleOpen = useCallback(() => {
-    onClick(image);
-  }, [onClick, image]);
+    onDoubleClick?.(image);
+  }, [onDoubleClick, image]);
 
   const handleImageLoad = useCallback(() => {
     setIsLoading(false);
@@ -262,7 +264,8 @@ const ImageCard = React.memo(function ImageCard({
         initial={false}
         whileHover={{ y: -8, transition: { duration: 0.2 } }}
         className="rounded-2xl overflow-hidden group cursor-pointer bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 shadow-[0_2px_12px_-3px_rgba(0,0,0,0.08),0_4px_24px_-8px_rgba(0,0,0,0.05)] hover:shadow-[0_8px_32px_-8px_rgba(99,102,241,0.25),0_4px_16px_-4px_rgba(0,0,0,0.1)] hover:border-indigo-300/70 dark:hover:border-indigo-500/70 dark:shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] dark:hover:shadow-[0_8px_32px_-8px_rgba(99,102,241,0.35)] transition-all duration-300 h-full ring-1 ring-black/[0.03] dark:ring-white/[0.05]"
-        onClick={handleOpen}
+        onClick={(event) => onClick(image, event)}
+        onDoubleClick={handleOpen}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
         onContextMenu={handleContextMenu}
@@ -311,7 +314,7 @@ const ImageCard = React.memo(function ImageCard({
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
-                    onToggleSelect?.(image.id);
+                    onToggleSelect?.(image.id, e);
                   }}
                   className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-colors ${
                     selected ? "bg-indigo-500 border-indigo-500" : "bg-white/70 border-white"

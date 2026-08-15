@@ -1,9 +1,10 @@
 import { Hono, type Context } from 'hono';
 import { cors } from 'hono/cors';
 import type { Env } from './types';
-import { AuthService } from './services/auth';
-import { corsResponse, unauthorizedResponse } from './utils/response';
+import { unauthorizedResponse } from './utils/response';
 import { processPendingDeletionJobs } from './services/deletion';
+import { AuthService } from './services/auth';
+import { isAllowedCorsOrigin } from './cors';
 
 // Import handlers
 import { uploadSingleHandler } from './handlers/upload';
@@ -18,17 +19,29 @@ import type { QueueMessage } from './types/queue';
 
 const app = new Hono<{ Bindings: Env }>();
 
-// CORS middleware - echo origin so credentials (cookies) can be used cross-origin
-app.use('*', cors({
-  origin: (origin) => origin || '*',
-  allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  allowHeaders: ['Content-Type'],
-  credentials: true,
-  maxAge: 86400,
-}));
+// Credentialed CORS is restricted to explicitly trusted frontend origins.
+app.use('*', async (c, next) => {
+  const origin = c.req.header('Origin');
+  const allowed = isAllowedCorsOrigin(origin ?? null, c.env);
+  const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method);
 
-// Handle preflight requests
-app.options('*', () => corsResponse());
+  // Reject cross-site state changes even when the browser does not expose the
+  // response (for example, a no-cors form/fetch request).
+  if (origin && !allowed && isMutating) {
+    return new Response(JSON.stringify({ success: false, error: 'Origin not allowed' }), {
+      status: 403,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  }
+
+  return cors({
+    origin: (requestOrigin) => isAllowedCorsOrigin(requestOrigin, c.env) ? requestOrigin : null,
+    allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowHeaders: ['Content-Type', 'Authorization'],
+    credentials: true,
+    maxAge: 86400,
+  })(c, next);
+});
 
 // Auth middleware for protected routes (session cookie based)
 const authMiddleware = async (c: Context<{ Bindings: Env }>, next: () => Promise<void>) => {
@@ -83,35 +96,25 @@ app.put('/api/config', authMiddleware, updateConfigHandler);
 app.get('/api/admin/stats', authMiddleware, statsHandler);
 app.post('/api/cleanup', authMiddleware, cleanupHandler);
 
-// 404 handler - ensure CORS headers are included
+// 404 handler - CORS middleware adds headers for trusted origins.
 app.notFound(() => {
   return new Response(
     JSON.stringify({ success: false, error: 'Not found' }),
     {
       status: 404,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: { 'Content-Type': 'application/json' },
     }
   );
 });
 
-// Error handler - ensure CORS headers are included
+// Error handler - CORS middleware adds headers for trusted origins.
 app.onError((err) => {
   console.error('Error:', err);
   return new Response(
     JSON.stringify({ success: false, error: 'Internal server error' }),
     {
       status: 500,
-      headers: {
-        'Content-Type': 'application/json',
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
+      headers: { 'Content-Type': 'application/json' },
     }
   );
 });

@@ -177,7 +177,36 @@
       sans-serif;
     font-weight: 700;
   }
-  /* Masonry Grid Styles */
+  /* 高性能图片框选：框选过程由 @viselect/vanilla 直接更新 DOM，避免 React 高频重渲染。 */
+.image-selection-container.box-select-enabled {
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-y;
+}
+
+.image-selection-container.box-select-enabled .image-selectable,
+.image-selection-container.box-select-enabled .image-selectable img {
+  -webkit-user-drag: none;
+  user-select: none;
+}
+
+.image-selection-container.box-select-enabled .image-selectable.is-box-selected {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+  border-radius: 1rem;
+}
+
+.viselect-selection-area {
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
+  border: 2px solid var(--accent-500);
+  border-radius: 0.25rem;
+  background: color-mix(in srgb, var(--accent-500) 16%, transparent);
+  will-change: top, left, width, height;
+}
+
+/* Masonry Grid Styles */
   .my-masonry-grid {
     display: flex;
     margin-left: -16px;

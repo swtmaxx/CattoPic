@@ -2,6 +2,7 @@
 
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import type { MouseEvent } from 'react';
 import type { ImageFile } from '../types';
 import ImageCard from './ImageCard';
 
@@ -32,7 +33,8 @@ function estimateCardHeight(image: Pick<ImageFile, 'width' | 'height' | 'orienta
 
 export interface VirtualImageMasonryProps {
   images: ImageFile[];
-  onImageClick: (image: ImageFile) => void;
+  onImageClick: (image: ImageFile, event: MouseEvent) => void;
+  onImageDoubleClick?: (image: ImageFile) => void;
   onDelete: (id: string) => Promise<void>;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
@@ -40,7 +42,7 @@ export interface VirtualImageMasonryProps {
   layoutKey?: string | number;
   selectable?: boolean;
   selectedIds?: Set<string>;
-  onToggleSelect?: (id: string) => void;
+  onToggleSelect?: (id: string, event?: MouseEvent) => void;
   /** 手动指定网格列数（覆盖自动计算），用于"大小调节"滑块 */
   lanesOverride?: number;
 }
@@ -54,6 +56,7 @@ interface VirtualImageMasonryInnerProps extends Omit<VirtualImageMasonryProps, '
 function VirtualImageMasonryInner({
   images,
   onImageClick,
+  onImageDoubleClick,
   onDelete,
   hasNextPage,
   isFetchingNextPage,
@@ -127,6 +130,7 @@ function VirtualImageMasonryInner({
           <div
             key={image.id}
             data-image-id={image.id}
+            className="image-selectable"
             style={{
               position: 'absolute',
               top: 0,
@@ -139,6 +143,7 @@ function VirtualImageMasonryInner({
             <ImageCard
               image={image}
               onClick={onImageClick}
+              onDoubleClick={onImageDoubleClick}
               onDelete={onDelete}
               displayWidth={columnWidth}
               selectable={selectable}
@@ -155,6 +160,7 @@ function VirtualImageMasonryInner({
 export default function VirtualImageMasonry({
   images,
   onImageClick,
+  onImageDoubleClick,
   onDelete,
   hasNextPage,
   isFetchingNextPage,
@@ -212,6 +218,7 @@ export default function VirtualImageMasonry({
           key={`${lanes}:${Math.round(scrollMargin)}`}
           images={images}
           onImageClick={onImageClick}
+          onImageDoubleClick={onImageDoubleClick}
           onDelete={onDelete}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}

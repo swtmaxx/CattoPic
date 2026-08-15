@@ -31,7 +31,8 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
 
   // 登录/初始化页面独立居中展示，不套后台框架
   const isStandalone = pathname?.startsWith('/admin/login') || pathname?.startsWith('/admin/setup')
-  if (isStandalone) return <>{children}</>
+  const isAdminRoute = pathname === '/admin' || pathname?.startsWith('/admin/') || pathname === '/manage' || pathname?.startsWith('/manage/')
+  if (isStandalone || !isAdminRoute) return <>{children}</>
 
   const handleLogout = async () => {
     await logout()

@@ -7,6 +7,11 @@ const SESSION_PREFIX = "session:";
 const PBKDF2_ITERATIONS = 100_000;
 const PBKDF2_HASH_BYTES = 32;
 
+interface SessionData {
+  createdAt: string;
+  credentialVersion: string;
+}
+
 interface AdminUser {
   id: number;
   username: string;
@@ -176,9 +181,18 @@ export class AuthService {
   // === Sessions (KV) ===
 
   async createSession(): Promise<{ token: string; cookie: string }> {
+    const admin = await this.getAdmin();
+    if (!admin) {
+      throw new Error('Cannot create a session before an admin exists');
+    }
+
     const tokenBytes = crypto.getRandomValues(new Uint8Array(32));
     const token = toHex(tokenBytes);
-    await this.kv.put(`${SESSION_PREFIX}${token}`, JSON.stringify({ createdAt: new Date().toISOString() }), {
+    const session: SessionData = {
+      createdAt: new Date().toISOString(),
+      credentialVersion: admin.updated_at,
+    };
+    await this.kv.put(`${SESSION_PREFIX}${token}`, JSON.stringify(session), {
       expirationTtl: SESSION_TTL_SECONDS,
     });
 
@@ -198,8 +212,22 @@ export class AuthService {
   async validateSession(request: Request): Promise<boolean> {
     const token = AuthService.extractSessionToken(request);
     if (!token) return false;
+
     const value = await this.kv.get(`${SESSION_PREFIX}${token}`);
-    return value !== null;
+    if (!value) return false;
+
+    let session: SessionData;
+    try {
+      session = JSON.parse(value) as SessionData;
+    } catch {
+      return false;
+    }
+
+    // Sessions issued before credential-version tracking are intentionally
+    // invalid, and changing username/password invalidates every old session.
+    if (typeof session.credentialVersion !== 'string') return false;
+    const admin = await this.getAdmin();
+    return !!admin && session.credentialVersion === admin.updated_at;
   }
 
   async destroySession(request: Request): Promise<void> {

@@ -1,10 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import type { MouseEvent, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
 import { motion } from "motion/react";
+import SelectionArea from "@viselect/vanilla";
 import ImageFilters, { ImageFilterValues } from "../components/ImageFilters";
 import ImageModal from "../components/ImageModal";
 import VirtualImageMasonry from "../components/VirtualImageMasonry";
@@ -13,14 +15,14 @@ import { useSession } from "../hooks/useSession";
 import { useTheme } from "../hooks/useTheme";
 import { ImageFile, StatusMessage } from "../types";
 import ToastContainer, { showToast } from "../components/ToastContainer";
-import AdminShell from "../components/admin/AdminShell";
 import TagManagementModal from "../components/TagManagementModal";
+import BatchRemoveTagsModal from "../components/BatchRemoveTagsModal";
 import RandomApiModal from "../components/RandomApiModal";
 import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, MagnifyingGlassIcon, Cross2Icon, CopyIcon, Link2Icon } from "../components/ui/icons";
 import { useInfiniteImages, useDeleteImage, useUpdateImage } from "../hooks/useImages";
 import { api } from "../utils/request";
 import { queryKeys } from "../lib/queryKeys";
-import { copyToClipboard, buildMarkdownLink } from "../utils/copyImageUtils";
+import { copyToClipboard } from "../utils/copyImageUtils";
 import { getFullUrl } from "../utils/baseUrl";
 
 export default function Manage() {
@@ -30,6 +32,7 @@ export default function Manage() {
   const { status, loading } = useSession();
 
   const [showTagModal, setShowTagModal] = useState(false);
+  const [showBatchRemoveTagsModal, setShowBatchRemoveTagsModal] = useState(false);
   const [showRandomApiModal, setShowRandomApiModal] = useState(false);
   const [selectedImage, setSelectedImage] = useState<ImageFile | null>(null);
   const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
@@ -49,12 +52,14 @@ export default function Manage() {
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [boxSelectMode, setBoxSelectMode] = useState(false);
-  const [batchCopyFormat, setBatchCopyFormat] = useState<"original" | "webp" | "avif">("webp");
-  const [dragRect, setDragRect] = useState<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
-  const listContainerRef = useRef<HTMLDivElement | null>(null);
-  const dragStateRef = useRef<{ startX: number; startY: number; active: boolean } | null>(null);
-  const dragRectRef = useRef<{ x1: number; y1: number; x2: number; y2: number } | null>(null);
   const suppressNextClickRef = useRef(false);
+  const selectedIdsRef = useRef<Set<string>>(new Set());
+  const selectionAreaRef = useRef<SelectionArea | null>(null);
+  const selectionIdsRef = useRef<Set<string>>(new Set());
+  const selectionMovedRef = useRef(false);
+  const [batchCopyFormat, setBatchCopyFormat] = useState<"original" | "webp" | "avif">("webp");
+  const listContainerRef = useRef<HTMLDivElement | null>(null);
+  const selectionAnchorRef = useRef<number | null>(null);
 
   const authenticated = status?.authenticated === true;
 
@@ -94,15 +99,158 @@ export default function Manage() {
     }
   }, [status, loading, router]);
 
-  // 切换选择
-  const toggleSelect = useCallback((id: string) => {
-    setSelectedIds((prev) => {
-      const next = new Set(prev);
+  // Windows 文件资源管理器式选择：单击独选，Ctrl/Cmd 切换，Shift 选择范围。
+  const handleImageSelect = useCallback((image: ImageFile, event: MouseEvent) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      return;
+    }
+    const index = images.findIndex((item) => item.id === image.id);
+    if (index < 0) return;
+    const additive = event.ctrlKey || event.metaKey;
+    const range = event.shiftKey && selectionAnchorRef.current !== null;
+
+    setSelectedIds((previous) => {
+      if (range) {
+        const anchor = selectionAnchorRef.current ?? index;
+        const start = Math.min(anchor, index);
+        const end = Math.max(anchor, index);
+        const next = additive ? new Set(previous) : new Set<string>();
+        for (let i = start; i <= end; i += 1) next.add(images[i].id);
+        return next;
+      }
+      if (additive) {
+        const next = new Set(previous);
+        if (next.has(image.id)) next.delete(image.id);
+        else next.add(image.id);
+        return next;
+      }
+      return new Set([image.id]);
+    });
+    selectionAnchorRef.current = index;
+    listContainerRef.current?.focus({ preventScroll: true });
+  }, [images]);
+
+  const toggleSelect = useCallback((id: string, event?: MouseEvent) => {
+    const image = images.find((item) => item.id === id);
+    if (image && event) {
+      handleImageSelect(image, event);
+      return;
+    }
+    setSelectedIds((previous) => {
+      const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, []);
+  }, [images, handleImageSelect]);
+
+  // 框选交互由 viselect 直接在 DOM 层处理，避免 mousemove 期间触发 React 页面级重渲染。
+  useEffect(() => {
+    selectedIdsRef.current = selectedIds;
+  }, [selectedIds]);
+
+  useEffect(() => {
+    const container = listContainerRef.current;
+    if (!container || isLoading || images.length === 0 || !boxSelectMode) {
+      selectionAreaRef.current?.destroy();
+      selectionAreaRef.current = null;
+      return;
+    }
+
+    const selection = new SelectionArea({
+      selectionAreaClass: "viselect-selection-area",
+      container,
+      startAreas: [container],
+      boundaries: [container],
+      selectables: [".image-selectable"],
+      behaviour: {
+        intersect: "touch",
+        overlap: "invert",
+        startThreshold: { x: 8, y: 8 },
+      },
+      features: {
+        // 普通点击仍交给图片卡片/列表行处理，框选只响应拖动。
+        singleTap: { allow: false, intersect: "native" },
+      },
+    });
+
+    const clearPreviewClasses = () => {
+      container.querySelectorAll<HTMLElement>(".image-selectable.is-box-selected").forEach((element) => {
+        element.classList.remove("is-box-selected");
+      });
+    };
+
+    selection.on("beforestart", ({ event }) => {
+      if (!event) return false;
+      const target = event.target as Element | null;
+      if (target?.closest("button, a, input, select, textarea")) return false;
+      return true;
+    });
+
+    selection.on("start", ({ event }) => {
+      const mouseEvent = event as MouseEvent | null;
+      const additive = !!mouseEvent?.ctrlKey || !!mouseEvent?.metaKey;
+      selectionMovedRef.current = false;
+      selectionIdsRef.current = additive
+        ? new Set(selectedIdsRef.current)
+        : new Set<string>();
+
+      // 清空库内上一次的内部选择，再将 Ctrl/Cmd 保留的项目导入。
+      selection.clearSelection(true, true);
+      if (additive && selectionIdsRef.current.size > 0) {
+        const retained = selection
+          .getSelectables()
+          .filter((element) => selectionIdsRef.current.has(element.getAttribute("data-image-id") ?? ""));
+        selection.select(retained, true);
+      } else if (!additive) {
+        clearPreviewClasses();
+        setSelectedIds(new Set());
+      }
+    });
+
+    selection.on("move", ({ store: { changed } }) => {
+      selectionMovedRef.current = true;
+      for (const element of changed.added) {
+        const id = element.getAttribute("data-image-id");
+        if (!id) continue;
+        selectionIdsRef.current.add(id);
+        element.classList.add("is-box-selected");
+      }
+      for (const element of changed.removed) {
+        const id = element.getAttribute("data-image-id");
+        if (!id) continue;
+        selectionIdsRef.current.delete(id);
+        element.classList.remove("is-box-selected");
+      }
+
+    });
+
+    selection.on("stop", () => {
+      if (selectionMovedRef.current) {
+        suppressNextClickRef.current = true;
+      }
+      setSelectedIds(new Set(selectionIdsRef.current));
+      clearPreviewClasses();
+      selectionMovedRef.current = false;
+    });
+
+    selectionAreaRef.current = selection;
+    const observer = new MutationObserver(() => selection.resolveSelectables());
+    observer.observe(container, { childList: true, subtree: true });
+    selection.resolveSelectables();
+
+    return () => {
+      observer.disconnect();
+      selection.destroy();
+      if (selectionAreaRef.current === selection) selectionAreaRef.current = null;
+      clearPreviewClasses();
+    };
+  }, [boxSelectMode, images.length, isLoading, view]);
+
+  useEffect(() => {
+    selectionAreaRef.current?.resolveSelectables();
+  }, [images, view, gridColumns]);
 
   const handleSearchChange = useCallback((value: string) => {
     setSearchInput(value);
@@ -120,123 +268,43 @@ export default function Manage() {
 
   const selectAllVisible = useCallback(() => {
     setSelectedIds(new Set(images.map((img) => img.id)));
+    selectionAnchorRef.current = images.length > 0 ? 0 : null;
+    listContainerRef.current?.focus({ preventScroll: true });
   }, [images]);
 
   const clearSelection = useCallback(() => {
     setSelectedIds(new Set());
   }, []);
 
-  const handleCopyAllMarkdown = useCallback(async () => {
-    if (images.length === 0) {
-      showToast("暂无图片可复制", "error");
-      return;
-    }
-
-    const markdown = images
-      .map((image) => {
-        const url = getFullUrl(image.urls?.webp || image.urls?.original || "");
-        return buildMarkdownLink(url, image.originalName);
-      })
-      .join("\n");
-
-    const success = await copyToClipboard(markdown);
-    if (success) {
-      showToast(`已复制 ${images.length} 张图片的 Markdown 链接`, "success");
-    } else {
-      showToast("复制失败", "error");
-    }
-  }, [images]);
-
-  const handleCopyAllUrls = useCallback(async () => {
-    if (images.length === 0) {
-      showToast("暂无图片可复制", "error");
-      return;
-    }
-
-    const urls = images
-      .map((image) => getFullUrl(image.urls?.webp || image.urls?.original || ""))
-      .join("\n");
-
-    const success = await copyToClipboard(urls);
-    if (success) {
-      showToast(`已复制 ${images.length} 条链接`, "success");
-    } else {
-      showToast("复制失败", "error");
-    }
-  }, [images]);
-
-  const handleDragMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return;
-    const target = e.target as HTMLElement;
-    if (target.closest("button, a, input, select, textarea")) return;
-    if (!boxSelectMode && target.closest("[data-image-id]")) return;
-    dragStateRef.current = { startX: e.clientX, startY: e.clientY, active: true };
-    e.preventDefault();
-    const rect = { x1: e.clientX, y1: e.clientY, x2: e.clientX, y2: e.clientY };
-    dragRectRef.current = rect;
-    setDragRect(rect);
-  }, [boxSelectMode]);
-
-  const handleDragMouseMove = useCallback((e: React.MouseEvent) => {
-    const state = dragStateRef.current;
-    if (!state?.active) return;
-    const rect = { x1: state.startX, y1: state.startY, x2: e.clientX, y2: e.clientY };
-    dragRectRef.current = rect;
-    setDragRect(rect);
-  }, []);
-
-  const handleDragMouseUp = useCallback(() => {
-    const state = dragStateRef.current;
-    if (!state?.active) return;
-    state.active = false;
-    const rect = dragRectRef.current;
-    setDragRect(null);
-    if (!rect) return;
-    const moved = Math.abs(rect.x2 - rect.x1) > 5 || Math.abs(rect.y2 - rect.y1) > 5;
-    if (!moved) return;
-
-    suppressNextClickRef.current = true;
-    const container = listContainerRef.current;
-    if (!container) return;
-    const els = container.querySelectorAll<HTMLElement>("[data-image-id]");
-    const selected = new Set<string>();
-    const rx1 = Math.min(rect.x1, rect.x2);
-    const rx2 = Math.max(rect.x1, rect.x2);
-    const ry1 = Math.min(rect.y1, rect.y2);
-    const ry2 = Math.max(rect.y1, rect.y2);
-    els.forEach((el) => {
-      const id = el.getAttribute("data-image-id");
-      if (!id) return;
-      const r = el.getBoundingClientRect();
-      if (r.left < rx2 && r.right > rx1 && r.top < ry2 && r.bottom > ry1) {
-        selected.add(id);
-      }
-    });
-    if (selected.size > 0) {
-      setSelectedIds(selected);
-    }
-  }, []);
-
-  const handleDragMouseLeave = useCallback(() => {
-    if (dragStateRef.current?.active) {
-      dragStateRef.current.active = false;
-      dragRectRef.current = null;
-      setDragRect(null);
-    }
-  }, []);
-
-  const handleImageClick = useCallback((image: ImageFile) => {
-    if (suppressNextClickRef.current) {
-      suppressNextClickRef.current = false;
-      return;
-    }
-    if (boxSelectMode) {
-      toggleSelect(image.id);
-      return;
-    }
+  const handleImageDoubleClick = useCallback((image: ImageFile) => {
     setSelectedImage(image);
     setIsModalOpen(true);
-  }, [boxSelectMode, toggleSelect]);
+  }, []);
+
+  const handleListKeyDown = useCallback((event: KeyboardEvent<HTMLDivElement>) => {
+    if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
+      event.preventDefault();
+      setSelectedIds(new Set(images.map((image) => image.id)));
+      selectionAnchorRef.current = images.length > 0 ? 0 : null;
+    } else if (event.key === "Escape") {
+      clearSelection();
+      selectionAnchorRef.current = null;
+    }
+  }, [images, clearSelection]);
+
+  const handleListBackgroundClick = useCallback((event: MouseEvent<HTMLDivElement>) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      return;
+    }
+    const target = event.target as HTMLElement;
+    if (!target.closest("[data-image-id]")) {
+      listContainerRef.current?.focus({ preventScroll: true });
+      clearSelection();
+      selectionAnchorRef.current = null;
+    }
+  }, [clearSelection]);
 
   const handleBatchCopyLinks = useCallback(async () => {
     if (selectedIds.size === 0) return;
@@ -340,19 +408,25 @@ export default function Manage() {
 
   const displayStatus = statusMsg || (queryError ? { type: "error" as const, message: "加载图片列表失败" } : null);
 
-  if (loading || !authenticated) {
+  // Keep the shared admin navigation mounted while the page data loads.
+  if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Spinner className="h-10 w-10 text-indigo-500" />
+      <div className="max-w-6xl mx-auto px-6 py-8">
+        <div className="flex justify-center items-center h-64">
+          <Spinner className="h-10 w-10 text-indigo-500" />
+        </div>
       </div>
     );
+  }
+
+  if (!authenticated) {
+    return null;
   }
 
   const selectedCount = selectedIds.size;
 
   return (
-    <AdminShell>
-    <div className="max-w-7xl mx-auto px-6 py-8">
+    <div className="max-w-6xl mx-auto px-6 py-8">
       <ToastContainer />
 
       {displayStatus && (
@@ -406,32 +480,17 @@ export default function Manage() {
             随机API
           </button>
           <button
-            onClick={() => void handleCopyAllUrls()}
-            disabled={images.length === 0}
-            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
-            title="复制当前列表全部图片的链接"
-          >
-            <CopyIcon className="h-4 w-4" />
-            复制全部链接
-          </button>
-          <button
-            onClick={() => void handleCopyAllMarkdown()}
-            disabled={images.length === 0}
-            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-50 flex items-center gap-1.5"
-            title="复制当前列表全部图片的 Markdown 链接"
-          >
-            <CopyIcon className="h-4 w-4" />
-            复制全部 Markdown
-          </button>
-          <button
-            onClick={() => setBoxSelectMode((v) => !v)}
-            className={`px-4 py-3 text-sm font-medium transition-colors rounded-xl ${
+            onClick={() => {
+              setBoxSelectMode((enabled) => !enabled);
+            }}
+            className={`px-4 py-3 text-sm font-medium transition-colors rounded-xl flex items-center gap-1.5 ${
               boxSelectMode
                 ? "bg-green-500 text-white shadow-sm"
                 : "bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
             }`}
-            title="开启批量管理模式：拖拽框选，点击图片切换选择"
+            title="开启后可拖动框选图片"
           >
+            <CheckIcon className="h-4 w-4" />
             批量管理
           </button>
           <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
@@ -503,6 +562,9 @@ export default function Manage() {
             <button onClick={handleBatchTag} className="px-3 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-lg flex items-center gap-1.5">
               <TagIcon className="h-4 w-4" /> 批量打标签
             </button>
+            <button onClick={() => setShowBatchRemoveTagsModal(true)} className="px-3 py-2 text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-300 rounded-lg flex items-center gap-1.5">
+              <TagIcon className="h-4 w-4" /> 批量删除标签
+            </button>
             <select
               value={batchCopyFormat}
               onChange={(e) => setBatchCopyFormat(e.target.value as "original" | "webp" | "avif")}
@@ -514,7 +576,7 @@ export default function Manage() {
               <option value="avif">AVIF</option>
             </select>
             <button onClick={() => void handleBatchCopyLinks()} className="px-3 py-2 text-sm bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-300 rounded-lg flex items-center gap-1.5">
-              <CopyIcon className="h-4 w-4" /> 复制链接
+              <CopyIcon className="h-4 w-4" /> 复制选中链接
             </button>
             <button onClick={handleBatchDelete} className="px-3 py-2 text-sm bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-1.5">
               <TrashIcon className="h-4 w-4" /> 批量删除
@@ -531,11 +593,10 @@ export default function Manage() {
         <>
           <div
             ref={listContainerRef}
-            onMouseDown={handleDragMouseDown}
-            onMouseMove={handleDragMouseMove}
-            onMouseUp={handleDragMouseUp}
-            onMouseLeave={handleDragMouseLeave}
-            className="relative select-none"
+            tabIndex={0}
+            onKeyDown={handleListKeyDown}
+            onClick={handleListBackgroundClick}
+            className={`image-selection-container relative outline-none ${boxSelectMode ? "box-select-enabled select-none" : ""}`}
           >
           {images.length > 0 ? (
             <>
@@ -543,7 +604,8 @@ export default function Manage() {
                 <VirtualImageMasonry
                   images={images}
                   layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
-                  onImageClick={handleImageClick}
+                  onImageClick={handleImageSelect}
+                  onImageDoubleClick={handleImageDoubleClick}
                   onDelete={handleDelete}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
@@ -558,9 +620,10 @@ export default function Manage() {
                   images={images}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
+                  onSelect={handleImageSelect}
                   onDelete={handleDelete}
                   onRename={handleRename}
-                  onView={handleImageClick}
+                  onView={handleImageDoubleClick}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   fetchNextPage={fetchNextPage}
@@ -588,17 +651,6 @@ export default function Manage() {
               <p className="mt-2 text-sm text-gray-400 dark:text-gray-500">请上传图片或调整筛选条件</p>
             </div>
           )}
-          {dragRect && (
-            <div
-              className="fixed z-50 pointer-events-none border-2 border-green-500 bg-green-500/20"
-              style={{
-                left: Math.min(dragRect.x1, dragRect.x2),
-                top: Math.min(dragRect.y1, dragRect.y2),
-                width: Math.abs(dragRect.x2 - dragRect.x1),
-                height: Math.abs(dragRect.y2 - dragRect.y1),
-              }}
-            />
-          )}
           </div>
         </>
       )}
@@ -616,8 +668,18 @@ export default function Manage() {
 
       <TagManagementModal isOpen={showTagModal} onClose={handleTagModalClose} />
 
+      <BatchRemoveTagsModal
+        isOpen={showBatchRemoveTagsModal}
+        imageIds={Array.from(selectedIds)}
+        onClose={() => setShowBatchRemoveTagsModal(false)}
+        onSuccess={() => {
+          setShowBatchRemoveTagsModal(false);
+          clearSelection();
+          queryClient.invalidateQueries({ queryKey: queryKeys.images.lists() });
+        }}
+      />
+
       <RandomApiModal isOpen={showRandomApiModal} onClose={() => setShowRandomApiModal(false)} />
     </div>
-    </AdminShell>
   );
 }

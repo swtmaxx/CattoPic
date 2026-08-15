@@ -2,6 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import type { ThemeAccent, ThemeMode } from '../types'
+import { api } from '../utils/request'
+import { useSession } from './useSession'
 
 const OVERRIDE_KEY = 'theme'
 const OVERRIDE_FLAG_KEY = 'theme-override'
@@ -19,18 +21,34 @@ let configPromise: Promise<SiteTheme> | null = null
 
 function fetchThemeConfig(): Promise<SiteTheme> {
   if (!configPromise) {
-    configPromise = fetch('/api/config', { cache: 'no-store' })
-      .then((r) => (r.ok ? r.json() : Promise.reject(new Error('config fetch failed'))))
+    // The Next.js /api/config route only exposes the Worker base URL. Read the
+    // persisted theme from the authenticated Worker API instead.
+    configPromise = api
+      .get<{ success: boolean; config?: { theme?: Partial<SiteTheme> } }>('/api/config')
       .then((data) => {
-        const t = data?.config?.theme
+        const t = data.config?.theme
         return {
-          accent: ACCENTS.includes(t?.accent) ? t.accent : DEFAULT_THEME.accent,
-          mode: MODES.includes(t?.mode) ? t.mode : DEFAULT_THEME.mode,
+          accent: ACCENTS.includes(t?.accent as ThemeAccent)
+            ? t?.accent as ThemeAccent
+            : DEFAULT_THEME.accent,
+          mode: MODES.includes(t?.mode as ThemeMode)
+            ? t?.mode as ThemeMode
+            : DEFAULT_THEME.mode,
         }
       })
-      .catch(() => DEFAULT_THEME)
+      .catch((error) => {
+        // Do not cache an unauthenticated/network failure. The shell remains
+        // mounted across login, so a later authenticated render must retry.
+        configPromise = null
+        throw error
+      })
   }
   return configPromise
+}
+
+/** Call after updating the server-side theme configuration. */
+export function invalidateThemeConfig() {
+  configPromise = null
 }
 
 function getOverride(): 'light' | 'dark' | null {
@@ -58,10 +76,12 @@ function resolveDark(mode: ThemeMode, override: 'light' | 'dark' | null): boolea
 }
 
 export function useTheme() {
+  const { status, loading } = useSession()
   const [isDarkMode, setIsDarkMode] = useState<boolean>(() => resolveDark(DEFAULT_THEME.mode, getOverride()))
   const [accent, setAccent] = useState<ThemeAccent>(DEFAULT_THEME.accent)
 
   useEffect(() => {
+    if (loading || !status?.authenticated) return
     let cancelled = false
 
     const apply = (dark: boolean, value: ThemeAccent) => {
@@ -72,17 +92,21 @@ export function useTheme() {
       setAccent(value)
     }
 
-    const override = getOverride()
-    void fetchThemeConfig().then((theme) => {
-      apply(resolveDark(theme.mode, override), theme.accent)
-    })
+    const applyConfig = () => {
+      const override = getOverride()
+      void fetchThemeConfig()
+        .then((theme) => apply(resolveDark(theme.mode, override), theme.accent))
+        .catch(() => {
+          if (!cancelled) apply(resolveDark(DEFAULT_THEME.mode, override), DEFAULT_THEME.accent)
+        })
+    }
+
+    applyConfig()
 
     const media = window.matchMedia('(prefers-color-scheme: dark)')
     const handleSystemChange = () => {
       if (getOverride()) return
-      void fetchThemeConfig().then((theme) => {
-        apply(resolveDark(theme.mode, null), theme.accent)
-      })
+      applyConfig()
     }
     media.addEventListener('change', handleSystemChange)
 
@@ -90,7 +114,7 @@ export function useTheme() {
       cancelled = true
       media.removeEventListener('change', handleSystemChange)
     }
-  }, [])
+  }, [loading, status?.authenticated])
 
   const toggleTheme = useCallback(() => {
     setIsDarkMode((prev) => {

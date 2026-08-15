@@ -5,13 +5,11 @@ import { MetadataService } from '../services/metadata';
 import { CacheService } from '../services/cache';
 import { ImageProcessor } from '../services/imageProcessor';
 import { CompressionService } from '../services/compression';
-import { getEffectiveConfig } from './system';
+import { DEFAULT_MAX_FILE_SIZE, getEffectiveConfig } from './system';
 import { successResponse, errorResponse } from '../utils/response';
 import { generateImageId, parseTags } from '../utils/validation';
 import { buildImageUrls } from '../utils/imageTransform';
 
-// Maximum file size: 70MB (Cloudflare Images Binding limit)
-const MAX_FILE_SIZE = 70 * 1024 * 1024;
 // Cloudflare Images transformation limit: 10MB (fallback to Transform-URL for larger images)
 const CLOUDFLARE_IMAGES_MAX_BYTES = 10 * 1024 * 1024;
 
@@ -21,13 +19,20 @@ const CLOUDFLARE_IMAGES_MAX_BYTES = 10 * 1024 * 1024;
  */
 export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promise<Response> {
   try {
-    // Check Content-Length header first to fail fast
+    // Read the effective admin setting once and use it for both size checks.
+    const config = await getEffectiveConfig(c.env.DB);
+    const maxFileSize = Number.isFinite(config.maxFileSize) && config.maxFileSize > 0
+      ? config.maxFileSize
+      : DEFAULT_MAX_FILE_SIZE;
+    const maxFileSizeMb = maxFileSize / 1024 / 1024;
+
+    // Check Content-Length header first to fail fast.
     const contentLength = c.req.header('Content-Length');
     if (contentLength) {
       const size = parseInt(contentLength, 10);
-      if (size > MAX_FILE_SIZE) {
-        console.error(`File too large: ${size} bytes (max: ${MAX_FILE_SIZE})`);
-        return errorResponse(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`, 413);
+      if (Number.isFinite(size) && size > maxFileSize) {
+        console.error(`File too large: ${size} bytes (max: ${maxFileSize})`);
+        return errorResponse(`File too large. Maximum size is ${maxFileSizeMb}MB`, 413);
       }
     }
 
@@ -42,7 +47,6 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
     const file = (formData.get('image') ?? formData.get('file')) as File | null;
     const tagsString = formData.get('tags') as string | null;
     // Global compression settings from admin config (no per-upload overrides)
-    const config = await getEffectiveConfig(c.env.DB);
     const compressionOptions = config.compression;
 
     if (!file || typeof file === 'string') {
@@ -50,9 +54,9 @@ export async function uploadSingleHandler(c: Context<{ Bindings: Env }>): Promis
     }
 
     // Double-check file size
-    if (file.size > MAX_FILE_SIZE) {
-      console.error(`File too large: ${file.size} bytes (max: ${MAX_FILE_SIZE})`);
-      return errorResponse(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`, 413);
+    if (file.size > maxFileSize) {
+      console.error(`File too large: ${file.size} bytes (max: ${maxFileSize})`);
+      return errorResponse(`File too large. Maximum size is ${maxFileSizeMb}MB`, 413);
     }
 
     console.log(`Processing upload: ${file.name}, size: ${file.size} bytes`);

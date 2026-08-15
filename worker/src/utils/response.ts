@@ -4,9 +4,6 @@ export function jsonResponse<T>(data: T, status: number = 200): Response {
     status,
     headers: {
       'Content-Type': 'application/json',
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization'
     }
   });
 }
@@ -37,17 +34,6 @@ export function imageResponse(
       'Content-Type': contentType,
       'Cache-Control': cacheControl,
       'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
-
-export function corsResponse(): Response {
-  return new Response(null, {
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-      'Access-Control-Max-Age': '86400'
     }
   });
 }

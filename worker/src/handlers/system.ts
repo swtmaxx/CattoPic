@@ -22,9 +22,11 @@ const DEFAULT_COMPRESSION: Required<CompressionOptions> = {
 };
 
 // Default configuration
+export const DEFAULT_MAX_FILE_SIZE = 70 * 1024 * 1024;
+
 const DEFAULT_CONFIG: Config = {
   maxUploadCount: 50,
-  maxFileSize: 70 * 1024 * 1024, // 70MB
+  maxFileSize: DEFAULT_MAX_FILE_SIZE, // 70MB
   supportedFormats: ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif', 'svg'],
   imageQuality: 80,
   compression: DEFAULT_COMPRESSION,
@@ -49,6 +51,13 @@ export async function getEffectiveConfig(db: D1Database): Promise<Config> {
       config[row.key] = row.value;
     }
   }
+
+  // Normalize the configurable upload limit so legacy or malformed D1 values
+  // always fall back to the documented default.
+  const configuredMaxFileSize = Number(config.maxFileSize);
+  config.maxFileSize = Number.isFinite(configuredMaxFileSize) && configuredMaxFileSize > 0
+    ? Math.max(1, Math.min(500 * 1024 * 1024, Math.trunc(configuredMaxFileSize)))
+    : DEFAULT_MAX_FILE_SIZE;
 
   // Merge compression defaults so partial configs stay valid
   const compression = config.compression as Partial<CompressionOptions> | undefined;

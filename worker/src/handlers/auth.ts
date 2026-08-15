@@ -159,7 +159,15 @@ export async function changeAccountHandler(c: Context<{ Bindings: Env }>): Promi
       return errorResponse('当前密码错误', 401);
     }
 
-    return successResponse({ message: '账号信息已更新' });
+    // The credential version changes on update, so the current cookie and all other sessions are invalidated.
+    const cookie = AuthService.buildLogoutCookie(getIsProduction(c));
+    return new Response(JSON.stringify({ success: true, message: '账号信息已更新' }), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Set-Cookie': cookie,
+      },
+    });
   } catch (err) {
     console.error('Change account error:', err);
     return errorResponse('修改账号失败');

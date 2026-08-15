@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useSession } from "../../hooks/useSession";
 import { api } from "../../utils/request";
+import { invalidateThemeConfig } from "../../hooks/useTheme";
 import type { AdminConfig, CompressionConfig, ThemeConfig, ThemeAccent, ThemeMode } from "../../types";
 import { Spinner, CheckIcon } from "../../components/ui/icons";
 import ToastContainer, { showToast } from "../../components/ToastContainer";
@@ -53,11 +54,14 @@ const DEFAULT_COMPRESSION: CompressionConfig = {
 };
 
 const DEFAULT_THEME: ThemeConfig = { accent: "green", mode: "system" };
+const DEFAULT_MAX_FILE_SIZE_MB = 70;
+const MAX_FILE_SIZE_MB = 500;
 
 export default function AdminSettings() {
   const router = useRouter();
-  const { status, loading } = useSession();
+  const { status, loading, logout } = useSession();
   const [compression, setCompression] = useState<CompressionConfig | null>(null);
+  const [maxFileSizeMb, setMaxFileSizeMb] = useState(DEFAULT_MAX_FILE_SIZE_MB);
   const [theme, setTheme] = useState<ThemeConfig>(DEFAULT_THEME);
   const [saving, setSaving] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
@@ -84,6 +88,10 @@ export default function AdminSettings() {
       .then((res) => {
         if (res.success && res.config) {
           setCompression({ ...DEFAULT_COMPRESSION, ...res.config.compression });
+          setMaxFileSizeMb(Math.max(1, Math.min(
+            MAX_FILE_SIZE_MB,
+            Math.round((res.config.maxFileSize || DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024) / 1024 / 1024),
+          )));
           setTheme({ ...DEFAULT_THEME, ...(res.config.theme || {}) });
         }
       })
@@ -92,10 +100,17 @@ export default function AdminSettings() {
 
   const handleSave = async () => {
     if (!compression) return;
+    if (!Number.isFinite(maxFileSizeMb) || maxFileSizeMb < 1 || maxFileSizeMb > MAX_FILE_SIZE_MB) {
+      showToast(`上传大小必须在 1-${MAX_FILE_SIZE_MB} MB 之间`, "error");
+      return;
+    }
     setSaving(true);
     try {
-      await api.put<{ success: boolean }>("/api/config", { compression });
-      showToast("压缩设置已保存", "success");
+      await api.put<{ success: boolean }>("/api/config", {
+        compression,
+        maxFileSize: Math.round(maxFileSizeMb * 1024 * 1024),
+      });
+      showToast("上传与压缩设置已保存", "success");
     } catch {
       showToast("保存失败", "error");
     } finally {
@@ -107,15 +122,18 @@ export default function AdminSettings() {
     setThemeSaving(true);
     try {
       await api.put<{ success: boolean }>("/api/config", { theme });
+      invalidateThemeConfig();
       showToast("主题设置已保存", "success");
       document.documentElement.dataset.accent = theme.accent;
-      if (theme.mode !== "system") {
-        document.documentElement.classList.toggle("dark", theme.mode === "dark");
-        try {
-          localStorage.removeItem("theme-override");
-        } catch {
-          // ignore storage errors
-        }
+      const dark = theme.mode === "dark"
+        || (theme.mode === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
+      document.documentElement.classList.toggle("dark", dark);
+      try {
+        // A saved server theme becomes the new default; remove the browser-only override.
+        localStorage.removeItem("theme");
+        localStorage.removeItem("theme-override");
+      } catch {
+        // ignore storage errors
       }
     } catch {
       showToast("保存失败", "error");
@@ -141,7 +159,9 @@ export default function AdminSettings() {
         newUsername: newUsername.trim() || undefined,
         newPassword: newPassword || undefined,
       });
-      showToast("账号信息已更新", "success");
+      await logout();
+      showToast("账号信息已更新，请重新登录", "success");
+      router.replace("/admin/login");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -245,6 +265,29 @@ export default function AdminSettings() {
           <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">全局压缩设置，适用于所有新上传的图片</p>
         </div>
 
+        {/* 上传大小 */}
+        <div>
+          <label htmlFor="max-file-size" className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-2">
+            最大上传大小
+          </label>
+          <div className="flex items-center gap-3">
+            <input
+              id="max-file-size"
+              type="number"
+              min={1}
+              max={MAX_FILE_SIZE_MB}
+              step={1}
+              value={Number.isFinite(maxFileSizeMb) ? maxFileSizeMb : ""}
+              onChange={(e) => setMaxFileSizeMb(Number(e.target.value))}
+              className="w-32 px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500"
+            />
+            <span className="text-sm text-gray-600 dark:text-gray-300">MB</span>
+          </div>
+          <p className="text-xs text-gray-400 mt-2">
+            默认 70 MB，可设置范围为 1–{MAX_FILE_SIZE_MB} MB；实际限制还受 Cloudflare 套餐限制影响。
+          </p>
+        </div>
+
         {/* 输出格式 */}
         <div>
           <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-3">输出格式</label>
@@ -336,7 +379,7 @@ export default function AdminSettings() {
             className="px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium flex items-center gap-2 disabled:opacity-70 transition-colors"
           >
             <CheckIcon className="h-4 w-4" />
-            {saving ? "保存中..." : "保存设置"}
+            {saving ? "保存中..." : "保存上传与压缩设置"}
           </button>
         </div>
       </div>

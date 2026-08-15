@@ -9,6 +9,32 @@ interface UploadDropzoneProps {
   maxUploadCount: number
 }
 
+type DirectoryFileEntry = {
+  kind: 'file'
+  getFile: () => Promise<File>
+}
+
+type DirectoryEntry = {
+  kind: 'directory'
+  values: () => AsyncIterable<DirectoryEntry | DirectoryFileEntry>
+}
+
+type DirectoryPickerWindow = Window & {
+  showDirectoryPicker?: () => Promise<DirectoryEntry>
+}
+
+async function readDirectoryFiles(entry: DirectoryEntry): Promise<File[]> {
+  const files: File[] = []
+  for await (const child of entry.values()) {
+    if (child.kind === 'file') {
+      files.push(await child.getFile())
+    } else {
+      files.push(...(await readDirectoryFiles(child)))
+    }
+  }
+  return files
+}
+
 export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxUploadCount }: UploadDropzoneProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const folderInputRef = useRef<HTMLInputElement>(null)
@@ -69,6 +95,24 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
     const files = e.target.files
     if (files) {
       onFilesSelected(Array.from(files))
+    }
+  }
+
+  const handleFolderPicker = async () => {
+    const picker = (window as DirectoryPickerWindow).showDirectoryPicker
+    if (!picker) {
+      folderInputRef.current?.click()
+      return
+    }
+
+    try {
+      const directory = await picker()
+      const files = await readDirectoryFiles(directory)
+      onFolderSelected?.(files)
+    } catch (error) {
+      // AbortError means the user cancelled the picker; do not show an error.
+      if (error instanceof DOMException && error.name === 'AbortError') return
+      folderInputRef.current?.click()
     }
   }
 
@@ -144,7 +188,7 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
             type="button"
             onClick={(e) => {
               e.stopPropagation()
-              folderInputRef.current?.click()
+              void handleFolderPicker()
             }}
             className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200 flex items-center gap-1.5"
           >

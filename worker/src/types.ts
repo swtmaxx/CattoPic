@@ -69,6 +69,7 @@ export interface Env {
   CACHE_KV: KVNamespace;
   ENVIRONMENT: string;
   R2_PUBLIC_URL: string;
+  CORS_ORIGINS?: string;
   IMAGES?: ImagesBinding;
   DELETE_QUEUE?: Queue<QueueMessage>;
   USE_QUEUE?: string;
@@ -186,6 +187,7 @@ export interface ImageFilters {
   order?: 'asc' | 'desc';
 }
 
+// Random image filters
 export interface RandomFilters {
   tags?: string[];
   exclude?: string[];

@@ -1,6 +1,7 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   fetchSessionStatus,
   login as apiLogin,
@@ -9,24 +10,33 @@ import {
   SessionStatus,
 } from "../utils/auth";
 
+export const sessionQueryKey = ["auth", "session"] as const;
+
+async function loadSessionStatus(): Promise<SessionStatus> {
+  try {
+    return await fetchSessionStatus();
+  } catch {
+    // Keep the existing behavior: a failed session request is treated as logged out.
+    return { authenticated: false, needsSetup: false };
+  }
+}
+
 export function useSession() {
-  const [status, setStatus] = useState<SessionStatus | null>(null);
-  const [loading, setLoading] = useState(true);
+  const queryClient = useQueryClient();
+  const query = useQuery({
+    queryKey: sessionQueryKey,
+    queryFn: loadSessionStatus,
+    staleTime: 5 * 60 * 1000,
+    gcTime: 30 * 60 * 1000,
+  });
 
   const refresh = useCallback(async () => {
-    try {
-      const s = await fetchSessionStatus();
-      setStatus(s);
-    } catch {
-      setStatus({ authenticated: false, needsSetup: false });
-    } finally {
-      setLoading(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
+    await queryClient.fetchQuery({
+      queryKey: sessionQueryKey,
+      queryFn: loadSessionStatus,
+      staleTime: 0,
+    });
+  }, [queryClient]);
 
   const login = useCallback(
     async (username: string, password: string) => {
@@ -38,8 +48,11 @@ export function useSession() {
 
   const logout = useCallback(async () => {
     await apiLogout();
-    setStatus({ authenticated: false, needsSetup: false });
-  }, []);
+    queryClient.setQueryData<SessionStatus>(sessionQueryKey, {
+      authenticated: false,
+      needsSetup: false,
+    });
+  }, [queryClient]);
 
   const setup = useCallback(
     async (username: string, password: string) => {
@@ -49,5 +62,12 @@ export function useSession() {
     [refresh]
   );
 
-  return { status, loading, refresh, login, logout, setup };
+  return {
+    status: query.data ?? null,
+    loading: query.isLoading,
+    refresh,
+    login,
+    logout,
+    setup,
+  };
 }

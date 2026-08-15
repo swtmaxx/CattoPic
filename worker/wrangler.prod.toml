@@ -10,6 +10,7 @@ compatibility_flags = ['nodejs_compat']
 [vars]
 ENVIRONMENT = 'production'
 R2_PUBLIC_URL = 'https://img.201116.xyz'
+CORS_ORIGINS = 'https://pic.swtmax.top'
 USE_QUEUE = 'false'
 
 [images]

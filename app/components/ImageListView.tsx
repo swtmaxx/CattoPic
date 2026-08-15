@@ -1,5 +1,6 @@
 "use client";
 
+import type { MouseEvent } from "react";
 import type { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { toCdnCgiImageUrl } from "../utils/cdnImage";
@@ -39,10 +40,11 @@ function formatDate(iso: string): string {
 interface ImageListViewProps {
   images: ImageFile[];
   selectedIds: Set<string>;
-  onToggleSelect: (id: string) => void;
+  onToggleSelect: (id: string, event?: MouseEvent) => void;
   onDelete: (id: string) => void;
   onRename: (image: ImageFile) => void;
   onView?: (image: ImageFile) => void;
+  onSelect?: (image: ImageFile, event: MouseEvent) => void;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
@@ -57,6 +59,7 @@ export default function ImageListView({
   onDelete,
   onRename,
   onView,
+  onSelect,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
@@ -84,10 +87,11 @@ export default function ImageListView({
                 <tr
                   key={image.id}
                   data-image-id={image.id}
-                  onClick={() => onView?.(image)}
-                  className={`border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer ${
+                  className={`image-selectable border-b border-gray-100 dark:border-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors cursor-pointer ${
                     selected ? "bg-green-50/60 dark:bg-green-900/20" : ""
                   }`}
+                  onClick={(event) => onSelect?.(image, event)}
+                  onDoubleClick={() => onView?.(image)}
                 >
                   <td className="px-4 py-2" onClick={(e) => e.stopPropagation()}>
                     <button

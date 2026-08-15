@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
+import AdminShell from "./components/admin/AdminShell";
 
 // Configure Inter font
 const inter = Inter({
@@ -44,7 +45,7 @@ export default function RootLayout({
       <body className={`${inter.className} ${notoSansSC.className} page-bg py-10 transition-colors duration-300 light-mode font-bold`}>
 
         <QueryProvider>
-          {children}
+          <AdminShell>{children}</AdminShell>
         </QueryProvider>
 
       </body>
