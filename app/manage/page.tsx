@@ -1,7 +1,6 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -13,11 +12,11 @@ import ImageListView from "../components/ImageListView";
 import { useSession } from "../hooks/useSession";
 import { useTheme } from "../hooks/useTheme";
 import { ImageFile, StatusMessage } from "../types";
-import Header from "../components/Header";
 import ToastContainer, { showToast } from "../components/ToastContainer";
+import AdminShell from "../components/admin/AdminShell";
 import TagManagementModal from "../components/TagManagementModal";
 import RandomApiModal from "../components/RandomApiModal";
-import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, MagnifyingGlassIcon, Cross2Icon, CopyIcon } from "../components/ui/icons";
+import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, MagnifyingGlassIcon, Cross2Icon, CopyIcon, Link2Icon } from "../components/ui/icons";
 import { useInfiniteImages, useDeleteImage, useUpdateImage } from "../hooks/useImages";
 import { api } from "../utils/request";
 import { queryKeys } from "../lib/queryKeys";
@@ -28,7 +27,7 @@ export default function Manage() {
   useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
-  const { status, loading, logout } = useSession();
+  const { status, loading } = useSession();
 
   const [showTagModal, setShowTagModal] = useState(false);
   const [showRandomApiModal, setShowRandomApiModal] = useState(false);
@@ -333,11 +332,6 @@ export default function Manage() {
   }, [updateImageMutation]);
 
 
-  const handleLogout = useCallback(async () => {
-    await logout();
-    queryClient.clear();
-    router.replace("/admin/login");
-  }, [logout, queryClient, router]);
 
   const handleTagModalClose = useCallback(() => {
     setShowTagModal(false);
@@ -357,23 +351,8 @@ export default function Manage() {
   const selectedCount = selectedIds.size;
 
   return (
+    <AdminShell>
     <div className="max-w-7xl mx-auto px-6 py-8">
-      <Header
-        onTagManageClick={() => setShowTagModal(true)}
-        onRandomApiClick={() => setShowRandomApiModal(true)}
-        onLogoutClick={handleLogout}
-        title="CattoPic"
-        authenticated
-      />
-
-      <div className="flex items-center gap-2 mb-6">
-        <Link href="/admin" className="px-4 py-2 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5">
-          返回后台
-        </Link>
-        <Link href="/" className="px-4 py-2 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-lg text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors flex items-center gap-1.5">
-          上传页
-        </Link>
-      </div>
       <ToastContainer />
 
       {displayStatus && (
@@ -412,6 +391,20 @@ export default function Manage() {
           )}
         </div>
         <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={() => setShowTagModal(true)}
+            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5"
+          >
+            <TagIcon className="h-4 w-4" />
+            标签管理
+          </button>
+          <button
+            onClick={() => setShowRandomApiModal(true)}
+            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5"
+          >
+            <Link2Icon className="h-4 w-4" />
+            随机API
+          </button>
           <button
             onClick={() => void handleCopyAllUrls()}
             disabled={images.length === 0}
@@ -625,5 +618,6 @@ export default function Manage() {
 
       <RandomApiModal isOpen={showRandomApiModal} onClose={() => setShowRandomApiModal(false)} />
     </div>
+    </AdminShell>
   );
 }
