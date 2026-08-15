@@ -14,6 +14,15 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
   const folderInputRef = useRef<HTMLInputElement>(null)
   const [isPasteActive, setIsPasteActive] = useState(false)
 
+  // 确保文件夹选择属性真正挂到 DOM（React 可能不会透传 webkitdirectory）
+  useEffect(() => {
+    const input = folderInputRef.current
+    if (input) {
+      input.setAttribute('webkitdirectory', '')
+      input.setAttribute('directory', '')
+    }
+  }, [])
+
   // 监听粘贴事件
   useEffect(() => {
     const handlePaste = (e: ClipboardEvent) => {
