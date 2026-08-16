@@ -183,7 +183,7 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: 10, scale: 0.95 }}
               transition={{ duration: 0.15 }}
-              className="filter-dropdown absolute left-0 top-full z-50 mt-2 w-full overflow-hidden"
+              className="filter-dropdown absolute left-0 top-full z-[110] mt-2 w-full overflow-hidden"
             >
               {type === "tag" && (
                 <div className="p-2 border-b border-gray-200 dark:border-gray-700/50">
@@ -244,7 +244,7 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
   }, [activeDropdown, format, orientation, tag, sort, formatOptions, orientationOptions, filteredTags, handleFilterChange]);
 
   return (
-    <div className="filter-toolbar relative z-30 mb-4">
+    <div className="filter-toolbar relative z-50 isolate mb-4">
       <motion.button
         onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
         className="filter-toggle-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
@@ -264,7 +264,7 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="filter-panel absolute left-0 top-full z-40 mt-2 w-full max-w-xl p-4"
+            className="filter-panel absolute left-0 top-full z-[100] mt-2 w-full max-w-xl p-4"
           >
             <div className="grid gap-3 sm:grid-cols-2">
               {renderFilterOption("format")}

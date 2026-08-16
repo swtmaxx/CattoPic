@@ -7,15 +7,8 @@ import { ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
 import { toCdnCgiImageUrl } from "../utils/cdnImage";
 import { LoadingSpinner } from "./LoadingSpinner";
-import { getFormatLabel } from "../utils/imageUtils";
-import {
-  copyToClipboard,
-  getPreferredImageLink,
-} from "../utils/copyImageUtils";
 import {
   CheckIcon,
-  Cross1Icon,
-  CopyIcon,
 } from './ui/icons';
 
 // 根据方向确定兜底比例（优先使用元数据 width/height）
@@ -49,8 +42,6 @@ const ImageCard = React.memo(function ImageCard({
   selected = false,
   onToggleSelect,
 }: ImageCardProps) {
-  const [copyStatus, setCopyStatus] = useState<"idle" | "copied" | "error">("idle");
-  const [isHovered, setIsHovered] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   // 使用 useMemo 缓存计算结果
@@ -78,19 +69,6 @@ const ImageCard = React.memo(function ImageCard({
     setIsLoading(false);
   }, []);
 
-  // 鼠标事件处理
-  const handleMouseEnter = useCallback(() => setIsHovered(true), []);
-  const handleMouseLeave = useCallback(() => setIsHovered(false), []);
-
-  // 快捷复制按钮
-  const handleQuickCopy = useCallback(async (e: React.MouseEvent) => {
-    e.stopPropagation();
-    const { url } = getPreferredImageLink(image);
-    const success = await copyToClipboard(url);
-    setCopyStatus(success ? "copied" : "error");
-    window.setTimeout(() => setCopyStatus("idle"), 2000);
-  }, [image]);
-
   return (
     <>
       <motion.div
@@ -98,8 +76,6 @@ const ImageCard = React.memo(function ImageCard({
         whileHover={{ y: -3, transition: { duration: 0.16 } }}
         className={`image-card group h-full cursor-pointer overflow-hidden ${selected ? "is-selected" : ""}`}
         onClick={(event) => onClick(image, event)}
-        onMouseEnter={handleMouseEnter}
-        onMouseLeave={handleMouseLeave}
       >
         <div
           className="relative w-full overflow-hidden bg-[var(--app-surface-muted)]"
@@ -134,55 +110,25 @@ const ImageCard = React.memo(function ImageCard({
 
           {isLoading && <LoadingSpinner />}
 
-          {/* Image info overlay */}
-          <div
-            className={`absolute top-0 left-0 right-0 p-3 flex justify-between items-center bg-black/40 text-white transition-opacity duration-300 ${
-              isLoading ? "opacity-0" : "opacity-100"
-            }`}
-          >
-            <div className="flex space-x-1 items-center">
-              {selectable && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onToggleSelect?.(image.id, e);
-                  }}
-                  className={`selection-checkbox flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-md border-2 transition-colors ${
-                    selected ? "border-[var(--accent-500)] bg-[var(--accent-500)]" : "border-white bg-white/70"
-                  }`}
-                  title={selected ? "取消选择" : "选择"}
-                >
-                  {selected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
-                </button>
-              )}
-              <span
-                className={`text-xs font-medium px-2 py-1 rounded-full ${
-                  isGif ? "bg-green-500/70" : "bg-blue-500/70"
-                }`}
-              >
-                {getFormatLabel(image.format)}
-              </span>
-            </div>
-
-            <motion.button
-              initial={{ opacity: 0 }}
-              animate={{ opacity: isHovered ? 1 : 0 }}
-              onClick={handleQuickCopy}
-              className="touch-action-button min-h-11 min-w-11 rounded-full bg-white/20 p-1.5 transition-colors hover:bg-white/40"
-              title="复制URL"
+          {selectable && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                onToggleSelect?.(image.id, event);
+              }}
+              className={`selection-checkbox absolute left-3 top-3 z-10 flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-md border-2 shadow-sm transition-colors ${
+                selected
+                  ? "border-[var(--accent-500)] bg-[var(--accent-500)]"
+                  : "border-white/90 bg-black/20 text-transparent shadow-black/30 backdrop-blur-sm"
+              }`}
+              title={selected ? "取消选择" : "选择"}
+              aria-label={selected ? "取消选择" : "选择图片"}
             >
-              {copyStatus === "idle" && (
-                <CopyIcon className="h-4 w-4" />
-              )}
-              {copyStatus === "copied" && (
-                <CheckIcon className="h-4 w-4 text-green-400" />
-              )}
-              {copyStatus === "error" && (
-                <Cross1Icon className="h-4 w-4 text-red-400" />
-              )}
-            </motion.button>
-            </div>
-          </div>
+              {selected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
+            </button>
+          )}
+        </div>
       </motion.div>
     </>
   );

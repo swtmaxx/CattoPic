@@ -7,6 +7,11 @@ main = 'src/index.ts'
 compatibility_date = '2025-12-10'
 compatibility_flags = ['nodejs_compat']
 
+[assets]
+directory = '../out'
+binding = 'ASSETS'
+html_handling = 'auto-trailing-slash'
+
 [vars]
 ENVIRONMENT = 'production'
 R2_PUBLIC_URL = 'https://img.201116.xyz'

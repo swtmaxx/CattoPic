@@ -5,29 +5,27 @@
 ## 项目架构
 
 ```
-┌─────────────────────┐         ┌─────────────────────────────────┐
-│                     │         │          Cloudflare             │
-│   Vercel            │         │                                 │
-│   ┌─────────────┐   │  HTTPS  │   ┌─────────────┐               │
-│   │  Next.js    │   │ ──────► │   │   Worker    │               │
-│   │  Frontend   │   │         │   │   (Hono)    │               │
-│   └─────────────┘   │         │   └──────┬──────┘               │
-│                     │         │          │                      │
-└─────────────────────┘         │    ┌─────┴─────┐                │
-                                │    │           │                │
-                                │ ┌──▼───┐   ┌───▼──┐   ┌────┐   │
-                                │ │  R2  │   │  D1  │   │ KV │   │
-                                │ │Bucket│   │  DB  │   │    │   │
-                                │ └──────┘   └──────┘   └────┘   │
-                                └─────────────────────────────────┘
+┌──────────────────────────────────────────────┐
+│              Cloudflare Worker               │
+│                                              │
+│  ┌────────────────┐       ┌───────────────┐  │
+│  │ Static Next.js │       │ Hono API      │  │
+│  │ Assets (out/)  │       │ /api/*        │  │
+│  └────────────────┘       └───────┬───────┘  │
+│                                   │          │
+│          ┌──────────┬─────────────┼──────┐   │
+│          │          │             │      │   │
+│       ┌──▼───┐   ┌──▼──┐       ┌──▼──┐ ┌─▼──┐ │
+│       │  R2  │   │ D1 │       │ KV  │ │Images│
+│       └──────┘   └─────┘       └─────┘ └─────┘
+└──────────────────────────────────────────────┘
 ```
 
 | 组件 | 平台 | 用途 |
 |------|------|------|
-| Frontend | Vercel | Next.js 前端应用 |
-| API | Cloudflare Worker | 后端 API 服务 (Hono) |
+| Frontend + API | Cloudflare Worker | Next.js 静态资源与 Hono API |
 | Storage | Cloudflare R2 | 图片文件存储 |
-| Database | Cloudflare D1 | SQLite 数据库（元数据、API Key） |
+| Database | Cloudflare D1 | SQLite 数据库（元数据、标签、管理员账号） |
 | Cache | Cloudflare KV | 缓存层 |
 | Queue | Cloudflare Queues | 异步任务（文件删除） |
 
@@ -38,7 +36,6 @@
 - [Node.js](https://nodejs.org/) >= 24
 - [pnpm](https://pnpm.io/) 包管理器
 - [Cloudflare 账户](https://dash.cloudflare.com/)
-- [Vercel 账户](https://vercel.com/)
 
 ---
 
@@ -107,21 +104,20 @@ pnpm wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
 
 已有部署升级时无需手动执行迁移；Worker 会通过 D1 binding 自动补齐新增的删除任务表。
 
-### 1.7 配置 wrangler.toml
+### 1.7 配置生产 Worker
 
-从模板复制配置文件：
-
-```bash
-cp wrangler.example.toml wrangler.toml
-```
-
-编辑 `worker/wrangler.toml`，填入上面获取的 ID：
+生产部署使用仓库中的 `worker/wrangler.prod.toml`。如果使用自己的 Cloudflare 资源，请替换其中的 R2、D1、KV ID，以及 `R2_PUBLIC_URL` 和 `CORS_ORIGINS`。
 
 ```toml
 name = 'cattopic-worker'
 main = 'src/index.ts'
 compatibility_date = '2025-12-10'
 compatibility_flags = ['nodejs_compat']
+
+[assets]
+directory = '../out'
+binding = 'ASSETS'
+html_handling = 'auto-trailing-slash'
 
 [vars]
 ENVIRONMENT = 'production'
@@ -143,14 +139,7 @@ database_id = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'  # 替换为你的 D1 datab
 binding = "CACHE_KV"
 id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # 替换为你的 KV namespace id
 
-[[queues.producers]]
-queue = "cattopic-delete-queue"
-binding = "DELETE_QUEUE"
-
-[[queues.consumers]]
-queue = "cattopic-delete-queue"
-max_batch_size = 10
-max_batch_timeout = 5
+# 当前 USE_QUEUE = 'false'，不需要配置 Queue。
 
 [triggers]
 crons = ['0 * * * *']  # 每小时清理过期图片
@@ -164,12 +153,16 @@ local_protocol = 'http'
 
 ## 二、Cloudflare Worker 部署
 
-### 2.1 部署 Worker
+### 2.1 构建并部署单 Worker
 
 ```bash
-cd worker
-pnpm wrangler deploy
+pnpm install --frozen-lockfile
+pnpm build
+pnpm -C worker install --frozen-lockfile
+pnpm -C worker wrangler deploy --config wrangler.prod.toml
 ```
+
+`pnpm build` 会生成 `out/`，Wrangler 会把它作为同一个 Worker 的静态 Assets 发布；`/api/*` 仍由 Hono 处理。
 
 部署成功后输出示例：
 ```
@@ -219,25 +212,16 @@ pnpm wrangler deploy
 
 ---
 
-## 四、Vercel 部署
+## 四、单 Worker 访问地址
 
-### 4.1 在 Vercel 创建项目
+部署成功后，Worker 地址同时提供前端和 API：
 
-1. 访问 [vercel.com/new](https://vercel.com/new)
-2. 导入 GitHub 仓库
-3. Framework Preset 选择 `Next.js`
+```text
+https://cattopic-worker.<your-subdomain>.workers.dev/
+https://cattopic-worker.<your-subdomain>.workers.dev/api/random
+```
 
-### 4.2 配置环境变量
-
-在 Vercel 项目设置中添加：
-
-| 变量名 | 值 | 说明 |
-|--------|-----|------|
-| `NEXT_PUBLIC_API_URL` | `https://cattopic-worker.xxx.workers.dev` | Worker API 地址 |
-
-### 4.3 部署
-
-点击 "Deploy" 按钮，等待部署完成。
+前端使用同源 `/api/*` 请求，因此生产环境不需要配置 `NEXT_PUBLIC_API_URL`。如果使用自定义域名，请将该域名填入 `CORS_ORIGINS` 后重新部署 Worker。
 
 ---
 
@@ -250,19 +234,20 @@ pnpm wrangler deploy
 ### 5.1 Fork + GitHub Actions
 
 1. 同步或合并上游代码。
-2. 确认仓库仍配置了 `CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`WRANGLER_TOML`。
+2. 确认仓库配置了 `CLOUDFLARE_API_TOKEN` 和 `CLOUDFLARE_ACCOUNT_ID`。
 3. 推送到 `main`，或在 GitHub Actions 手动运行 `Deploy Worker`。
-4. workflow 会安装依赖、生成 `wrangler.toml`、执行 Worker 类型检查并部署 Worker。
+4. workflow 会安装前端和 Worker 依赖、构建 `out/`、执行 Worker 类型检查并部署单 Worker。
 5. 不需要在 Actions 中执行 D1 SQL。
 
 ### 5.2 本地拉取 + 手动部署
 
 ```bash
 git pull
-corepack pnpm install --frozen-lockfile
-corepack pnpm -C worker install --frozen-lockfile
-corepack pnpm -C worker exec tsc --noEmit
-corepack pnpm -C worker wrangler deploy
+npx --yes pnpm@10.24.0 install --frozen-lockfile
+npx --yes pnpm@10.24.0 run build
+npx --yes pnpm@10.24.0 -C worker install --frozen-lockfile
+npx --yes pnpm@10.24.0 -C worker exec tsc --noEmit
+npx --yes pnpm@10.24.0 -C worker exec wrangler deploy --config wrangler.prod.toml
 ```
 
 后台登录使用 D1 `admin_users` 表（PBKDF2 哈希）校验，会话存于 KV，不要配置成 Worker Secret。
@@ -293,6 +278,8 @@ pnpm dev
 ```env
 NEXT_PUBLIC_API_URL=http://localhost:8787
 ```
+
+本地开发时前端和 Worker 仍分别运行；生产环境由 Worker Assets 提供静态前端。生产构建不需要设置 `NEXT_PUBLIC_API_URL`，留空即可使用同源 API。
 
 ---
 
@@ -371,10 +358,12 @@ pnpm wrangler queues list
 ### Worker 更新
 
 ```bash
-cd worker
-pnpm wrangler deploy
+pnpm install --frozen-lockfile
+pnpm build
+pnpm -C worker install --frozen-lockfile
+pnpm -C worker wrangler deploy --config wrangler.prod.toml
 ```
 
-### 前端更新
+### 自动更新
 
-推送代码到 GitHub，Vercel 会自动部署。
+推送 `main` 后，GitHub Actions 会在前端或 Worker 文件变化时自动构建并部署单 Worker。

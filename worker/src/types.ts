@@ -64,6 +64,7 @@ import type { QueueMessage } from './types/queue';
 
 // Cloudflare Worker bindings
 export interface Env {
+  ASSETS: Fetcher;
   R2_BUCKET: R2Bucket;
   DB: D1Database;
   CACHE_KV: KVNamespace;

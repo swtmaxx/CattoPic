@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Cross1Icon, Link2Icon } from '../ui/icons';
 import { useTags } from '../../hooks/useTags';
@@ -31,33 +31,9 @@ export default function RandomApiModal({ isOpen, onClose }: RandomApiModalProps)
     ''
   );
 
-  useEffect(() => {
-    if (!isOpen) return;
-
-    let cancelled = false;
-
-    const fetchConfig = async () => {
-      try {
-        const res = await fetch('/api/config', { cache: 'no-store' });
-        if (!res.ok) return;
-        const config = await res.json() as { apiUrl?: string };
-        if (!cancelled && config.apiUrl) {
-          setBaseUrl(config.apiUrl);
-        }
-      } catch {
-      }
-    };
-
-    void fetchConfig();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isOpen]);
-
   // 构建 URL
   const generatedUrl = useMemo(() => {
-    const resolvedBase = baseUrl || 'https://your-worker.workers.dev';
+    const resolvedBase = baseUrl || (typeof window !== 'undefined' ? window.location.origin : 'https://your-worker.workers.dev');
     const url = new URL('/api/random', resolvedBase);
 
     if (includeTags.length > 0) {

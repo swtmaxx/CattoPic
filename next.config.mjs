@@ -12,8 +12,8 @@ if (fs.existsSync(parentEnvPath)) {
 }
 
 /** @type {boolean} */
-// Set to false to enable server mode with image optimization (requires Vercel)
-const isStaticExport = false;
+// The frontend is served as static assets by the Cloudflare Worker.
+const isStaticExport = true;
 
 const parseRemotePatterns = (patterns) => {
   if (!patterns || isStaticExport) {
@@ -45,6 +45,7 @@ const nextConfig = {
   reactStrictMode: true,
   allowedDevOrigins: ['localhost', '127.0.0.1'],
   output: isStaticExport ? 'export' : undefined,
+  trailingSlash: isStaticExport,
   images: {
     // Disable Next.js image optimization; images are already delivered as transformed URLs.
     unoptimized: true,

@@ -6,6 +6,11 @@ on:
       - main
     paths:
       - 'worker/**'
+      - 'app/**'
+      - 'public/**'
+      - 'next.config.mjs'
+      - 'package.json'
+      - 'pnpm-lock.yaml'
       - '.github/workflows/deploy-worker.yml'
   workflow_dispatch:
 
@@ -32,6 +37,12 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
           cache-dependency-path: worker/pnpm-lock.yaml
+
+      - name: Install frontend dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build frontend assets
+        run: pnpm build
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

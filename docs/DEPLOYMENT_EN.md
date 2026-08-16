@@ -4,397 +4,177 @@
 
 ## Architecture
 
-```
-┌─────────────────────┐         ┌─────────────────────────────────┐
-│                     │         │          Cloudflare             │
-│   Vercel            │         │                                 │
-│   ┌─────────────┐   │  HTTPS  │   ┌─────────────┐               │
-│   │  Next.js    │   │ ──────► │   │   Worker    │               │
-│   │  Frontend   │   │         │   │   (Hono)    │               │
-│   └─────────────┘   │         │   └──────┬──────┘               │
-│                     │         │          │                      │
-└─────────────────────┘         │    ┌─────┴─────┐                │
-                                │    │           │                │
-                                │ ┌──▼───┐   ┌───▼──┐   ┌────┐   │
-                                │ │  R2  │   │  D1  │   │ KV │   │
-                                │ │Bucket│   │  DB  │   │    │   │
-                                │ └──────┘   └──────┘   └────┘   │
-                                └─────────────────────────────────┘
-```
+CattoPic is deployed as one Cloudflare Worker. The Worker serves the static
+Next.js export from out/ and routes /api/* to the Hono application.
 
-| Component | Platform | Purpose |
-|-----------|----------|---------|
-| Frontend | Vercel | Next.js frontend application |
-| API | Cloudflare Worker | Backend API service (Hono) |
-| Storage | Cloudflare R2 | Image file storage |
-| Database | Cloudflare D1 | SQLite database (metadata, API keys) |
-| Cache | Cloudflare KV | Caching layer |
-| Queue | Cloudflare Queues | Async tasks (file deletion) |
-
----
+| Component | Service | Purpose |
+|-----------|---------|---------|
+| Frontend + API | Cloudflare Worker | Next.js static assets and Hono API |
+| Storage | Cloudflare R2 | Original and converted image files |
+| Database | Cloudflare D1 | Image metadata, tags, and admin account |
+| Sessions/cache | Cloudflare KV | Login sessions and response cache |
+| Queue | Cloudflare Queues (optional) | Asynchronous R2 deletion |
+| Transforms | Cloudflare Images | WebP/AVIF conversion and optimization |
+| Cleanup | Cron Triggers | Retry deletion jobs and clean expired images |
 
 ## Prerequisites
 
-- [Node.js](https://nodejs.org/) >= 24
-- [pnpm](https://pnpm.io/) package manager
-- [Cloudflare account](https://dash.cloudflare.com/)
-- [Vercel account](https://vercel.com/)
+- Node.js 24 or newer
+- pnpm 10.x
+- A Cloudflare account
 
----
+Use pnpm 10 for installs. pnpm 11 can rewrite the lockfile metadata.
 
-## 1. Cloudflare Resource Setup
+## 1. Create Cloudflare Resources
 
-### 1.1 Login to Wrangler CLI
+From the worker directory, install dependencies and log in:
 
-```bash
-cd worker
-pnpm install
-pnpm wrangler login
-```
+    cd worker
+    npx --yes pnpm@10.24.0 install --frozen-lockfile
+    npx --yes pnpm@10.24.0 exec wrangler login
 
-### 1.2 Create R2 Bucket
+Create an R2 bucket, D1 database, and KV namespace. Record the IDs returned by
+Wrangler:
 
-```bash
-pnpm wrangler r2 bucket create cattopic-r2 --location=apac
-```
+    npx --yes pnpm@10.24.0 exec wrangler r2 bucket create cattopic-r2 --location=apac
+    npx --yes pnpm@10.24.0 exec wrangler d1 create CattoPic-D1 --location=apac
+    npx --yes pnpm@10.24.0 exec wrangler kv namespace create CACHE_KV
 
-> `--location=apac` deploys the bucket in Asia-Pacific for lower latency
+Queues are optional. Only create one when USE_QUEUE is true:
 
-### 1.3 Create D1 Database
+    npx --yes pnpm@10.24.0 exec wrangler queues create cattopic-delete-queue
 
-```bash
-pnpm wrangler d1 create CattoPic-D1 --location=apac
-```
+For a new database, initialize the schema from the worker directory:
 
-Example output:
-```
-✅ Successfully created DB 'CattoPic-D1' in region APAC
-Created your new D1 database.
+    npx --yes pnpm@10.24.0 exec wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
 
-[[d1_databases]]
-binding = "DB"
-database_name = "CattoPic-D1"
-database_id = "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"  # Note this ID
-```
+Existing deployments should not run the schema file again.
 
-### 1.4 Create KV Namespace
+## 2. Configure the Production Worker
 
-```bash
-pnpm wrangler kv namespace create CACHE_KV
-```
+Production deployment uses worker/wrangler.prod.toml. Replace its R2, D1,
+and KV values with resources from your Cloudflare account. Also set:
 
-Example output:
-```
-🌀 Creating namespace with title "cattopic-worker-CACHE_KV"
-✨ Success!
-Add the following to your configuration file in your kv_namespaces array:
-[[kv_namespaces]]
-binding = "CACHE_KV"
-id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Note this ID
-```
+- R2_PUBLIC_URL: the public domain used for image files.
+- CORS_ORIGINS: comma-separated origins for a separate frontend domain.
 
-### 1.5 Create Queue
+Keep this section in the production configuration:
 
-```bash
-pnpm wrangler queues create cattopic-delete-queue
-```
+    [assets]
+    directory = '../out'
+    binding = 'ASSETS'
+    html_handling = 'auto-trailing-slash'
 
-### 1.6 Initialize Database Schema
+When frontend and API use the same Worker domain, the current origin is
+trusted automatically. Do not copy the old wrangler.example.toml flow.
 
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
-```
+## 3. Build and Deploy the Single Worker
 
-Existing deployments do not require manual migration commands; the Worker automatically creates the new deletion job table through the D1 binding.
+Run these commands from the repository root:
 
-### 1.7 Configure wrangler.toml
+    npx --yes pnpm@10.24.0 install --frozen-lockfile
+    npx --yes pnpm@10.24.0 run build
+    npx --yes pnpm@10.24.0 -C worker install --frozen-lockfile
+    npx --yes pnpm@10.24.0 -C worker exec tsc --noEmit
+    npx --yes pnpm@10.24.0 -C worker exec wrangler deploy --config wrangler.prod.toml
 
-Copy the template configuration file:
+The frontend build creates out/, which Wrangler uploads as static Assets of the
+same Worker. The deployment serves both the frontend and API:
 
-```bash
-cp wrangler.example.toml wrangler.toml
-```
+    https://cattopic-worker.<your-subdomain>.workers.dev/
+    https://cattopic-worker.<your-subdomain>.workers.dev/api/random
 
-Edit `worker/wrangler.toml` with your resource IDs:
+## 4. Create the Administrator
 
-```toml
-name = 'cattopic-worker'
-main = 'src/index.ts'
-compatibility_date = '2025-12-10'
-compatibility_flags = ['nodejs_compat']
+After deployment, open /admin/setup on the Worker domain and create the first
+username and password. Passwords are stored as PBKDF2 hashes in D1; browser
+sessions are stored in KV. Use /admin/login for later sign-ins.
 
-[vars]
-ENVIRONMENT = 'production'
-R2_PUBLIC_URL = 'https://your-r2-domain.com'  # Your R2 public access domain
+Protected management and upload endpoints use the HttpOnly cattopic_session
+cookie. /api/random remains public.
 
-[images]
-binding = "IMAGES"
+Check setup state without logging in:
 
-[[r2_buckets]]
-binding = 'R2_BUCKET'
-bucket_name = 'cattopic-r2'  # Your R2 bucket name
+    curl https://cattopic-worker.<your-subdomain>.workers.dev/api/auth/session
 
-[[d1_databases]]
-binding = 'DB'
-database_name = 'CattoPic-D1'
-database_id = 'xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'  # Replace with your D1 database_id
+## 5. GitHub Actions Deployment
 
-[[kv_namespaces]]
-binding = "CACHE_KV"
-id = "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Replace with your KV namespace id
+The Deploy Worker workflow builds the frontend, typechecks the Worker, and
+deploys worker/wrangler.prod.toml.
 
-[[queues.producers]]
-queue = "cattopic-delete-queue"
-binding = "DELETE_QUEUE"
+Configure these repository secrets:
 
-[[queues.consumers]]
-queue = "cattopic-delete-queue"
-max_batch_size = 10
-max_batch_timeout = 5
+| Secret | Description |
+|--------|-------------|
+| CLOUDFLARE_API_TOKEN | Cloudflare API token for Worker deployment |
+| CLOUDFLARE_ACCOUNT_ID | Cloudflare account ID |
 
-[triggers]
-crons = ['0 * * * *']  # Cleanup expired images hourly
+WRANGLER_TOML is no longer required. Push frontend or Worker changes to main,
+or run the workflow manually.
 
-[dev]
-port = 8787
-local_protocol = 'http'
-```
+## 6. Upgrading Existing Deployments
 
----
+Keep the existing D1 database and R2 bucket. Do not reinitialize the schema.
+The admin_users table is created automatically when setup or login first runs.
+The legacy api_keys table, if present, is no longer used.
 
-## 2. Deploy Cloudflare Worker
+The deletion_jobs table is created lazily when deletion handling first needs
+it. No manual migration is required for this release.
 
-### 2.1 Deploy Worker
+For a former Vercel plus Worker deployment, update the production bindings,
+set CORS_ORIGINS to the old frontend domain if needed, then build and deploy
+the single Worker. Verify the Worker URL before removing Vercel.
 
-```bash
-cd worker
-pnpm wrangler deploy
-```
+## 7. Local Development
 
-Example output on success:
-```
-Uploaded cattopic-worker
-Deployed cattopic-worker triggers
-  https://cattopic-worker.<your-subdomain>.workers.dev
-```
+Local development still runs frontend and Worker separately:
 
-### 2.2 Add API Key
+    # Terminal 1
+    cd worker
+    npx --yes pnpm@10.24.0 dev
 
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('your-api-key-here', datetime('now'));
-"
-```
+    # Terminal 2, from the repository root
+    npx --yes pnpm@10.24.0 dev
 
-> Tip: Use a strong random string as API Key, e.g.: `openssl rand -hex 32`
+The Worker runs at http://localhost:8787; Next.js runs at
+http://localhost:3000. Set this in the root .env.local:
 
-### 2.3 Verify Deployment
+    NEXT_PUBLIC_API_URL=http://localhost:8787
 
-```bash
-# Test authentication
-curl -X POST \
-  -H "Authorization: Bearer your-api-key-here" \
-  https://cattopic-worker.<your-subdomain>.workers.dev/api/validate-api-key
+Production does not need NEXT_PUBLIC_API_URL; it uses same-origin /api/*
+requests.
 
-# Expected response
-{"success":true,"data":{"valid":true}}
-```
+## 8. API Overview
 
----
+Public endpoints include /api/random, /api/auth/session, /api/auth/setup,
+/api/auth/login, and /api/auth/logout.
 
-## 3. R2 Public Access Configuration (Optional)
+Protected endpoints require the cattopic_session cookie and include image
+upload/list/update/delete, tag management, configuration, statistics, and
+cleanup routes.
 
-If you need a custom domain for accessing R2 stored images:
+For request details, see API_EN.md. Its authentication examples are from the
+legacy API-key release; use the session endpoints above for the current
+application.
 
-### 3.1 Configure in Cloudflare Dashboard
+## FAQ
 
-1. Go to R2 bucket settings
-2. Enable public access in the "Public access" section
-3. Configure custom domain (e.g., `r2.yourdomain.com`)
+### 401 Unauthorized
 
-### 3.2 Update wrangler.toml
+Open /admin/login and sign in. If initialization is required, open
+/admin/setup first. Check /api/auth/session to inspect session state.
 
-```toml
-[vars]
-R2_PUBLIC_URL = 'https://r2.yourdomain.com'
-```
+### Reset the administrator
 
-Redeploy:
+Delete the single row from admin_users in the remote D1 database, then open
+/admin/setup again:
 
-```bash
-pnpm wrangler deploy
-```
+    npx --yes pnpm@10.24.0 -C worker exec wrangler d1 execute CattoPic-D1 --remote --command "DELETE FROM admin_users;"
 
----
+For custom image domains, check R2_PUBLIC_URL, R2 public access, and DNS
+propagation.
 
-## 4. Deploy to Vercel
+## Updating
 
-### 4.1 Create Project on Vercel
-
-1. Visit [vercel.com/new](https://vercel.com/new)
-2. Import GitHub repository
-3. Select `Next.js` as Framework Preset
-
-### 4.2 Configure Environment Variables
-
-Add in Vercel project settings:
-
-| Variable | Value | Description |
-|----------|-------|-------------|
-| `NEXT_PUBLIC_API_URL` | `https://cattopic-worker.xxx.workers.dev` | Worker API URL |
-
-### 4.3 Deploy
-
-Click "Deploy" button and wait for completion.
-
----
-
-## 5. Upgrading Existing Deployments
-
-Existing deployments should keep the current D1 database. API keys in the `api_keys` table do not need migration or rotation. `schema.sql` is only for fresh installations; do not reinitialize the database during upgrades.
-
-This release adds a `deletion_jobs` table for reliable R2 deletion retries. The Worker lazily creates that table at runtime through the D1 binding, so fork users and local deployers do not need to run a manual D1 migration command.
-
-### 5.1 Fork + GitHub Actions
-
-1. Sync or merge upstream changes.
-2. Keep the existing repository secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `WRANGLER_TOML`.
-3. Push to `main`, or manually run the `Deploy Worker` workflow in GitHub Actions.
-4. The workflow installs dependencies, generates `wrangler.toml`, typechecks the Worker, and deploys it.
-5. Do not run D1 SQL from Actions for this upgrade.
-
-### 5.2 Local Pull + Manual Deploy
-
-```bash
-git pull
-corepack pnpm install --frozen-lockfile
-corepack pnpm -C worker install --frozen-lockfile
-corepack pnpm -C worker exec tsc --noEmit
-corepack pnpm -C worker wrangler deploy
-```
-
-API keys are still validated only from the D1 `api_keys` table. Do not configure an API key as a Worker Secret.
-
----
-
-## 6. Local Development
-
-### 6.1 Start Worker (Local)
-
-```bash
-cd worker
-pnpm dev
-# Running at http://localhost:8787
-```
-
-### 6.2 Start Frontend (Local)
-
-```bash
-pnpm dev
-# Running at http://localhost:3000
-```
-
-### 6.3 Local Environment Variables
-
-Create `.env.local` file:
-
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8787
-```
-
----
-
-## 7. API Reference
-
-### Authentication
-
-Protected APIs require the following header:
-
-```
-Authorization: Bearer <your-api-key>
-```
-
-### API Endpoints
-
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| GET | `/api/random` | No | Get random image |
-| GET | `/r2/*` | No | Access image files |
-| POST | `/api/validate-api-key` | Yes | Validate API Key |
-| POST | `/api/upload/single` | Yes | Upload image |
-| GET | `/api/images` | Yes | List images |
-| GET | `/api/images/:id` | Yes | Get image details |
-| PUT | `/api/images/:id` | Yes | Update image metadata |
-| DELETE | `/api/images/:id` | Yes | Delete image |
-| GET | `/api/tags` | Yes | List tags |
-| POST | `/api/tags` | Yes | Create tag |
-| PUT | `/api/tags/:name` | Yes | Rename tag |
-| DELETE | `/api/tags/:name` | Yes | Delete tag and associated images |
-| POST | `/api/tags/batch` | Yes | Batch tag operations |
-
-For detailed API documentation, see [API_EN.md](./API_EN.md).
-
----
-
-## 7. FAQ
-
-### Q1: 401 Unauthorized Error
-
-Check if API Key has been added to database:
-
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "SELECT * FROM api_keys;"
-```
-
-### Q2: How to Add New API Key
-
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('new-api-key', datetime('now'));
-"
-```
-
-### Q3: How to Delete API Key
-
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-DELETE FROM api_keys WHERE key = 'old-api-key';
-"
-```
-
-### Q4: How to View All Resource IDs
-
-```bash
-# View D1 databases
-pnpm wrangler d1 list
-
-# View KV namespaces
-pnpm wrangler kv namespace list
-
-# View R2 buckets
-pnpm wrangler r2 bucket list
-
-# View queues
-pnpm wrangler queues list
-```
-
-### Q5: Images Not Accessible After Upload
-
-1. Check if `R2_PUBLIC_URL` is configured correctly
-2. Confirm R2 bucket has public access enabled
-3. Check if custom domain DNS has propagated
-
----
-
-## 8. Updating Deployment
-
-### Worker Update
-
-```bash
-cd worker
-pnpm wrangler deploy
-```
-
-### Frontend Update
-
-Push code to GitHub, Vercel will auto-deploy.
+Repeat the build and deploy commands in section 3, or push to main and let
+GitHub Actions deploy the same single Worker.

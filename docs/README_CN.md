@@ -1,301 +1,200 @@
 # CattoPic
 
-一个自托管的图片托管服务，支持自动格式转换、标签管理和随机图片 API。基于 Next.js 前端和 Cloudflare Workers 后端构建。
+一个自托管的图片托管服务，支持自动格式转换、标签管理和随机图片 API。前端使用 Next.js，后端使用 Cloudflare Workers 和 Hono。
 
 [English](../README.md)
 
 ## 系统架构
 
-```mermaid
-flowchart TB
-    subgraph Client["👤 客户端"]
-        Browser["🌐 浏览器"]
-        API_Client["📱 API 客户端"]
-    end
+CattoPic 使用单 Worker 部署。Cloudflare Worker 同时提供 Next.js 静态页面和 Hono API：
 
-    subgraph Vercel["Vercel"]
-        NextJS["⚛️ Next.js 16<br/>React 19 + Tailwind CSS"]
-    end
-
-    subgraph Cloudflare["Cloudflare 边缘网络"]
-        subgraph Worker["Worker 运行时"]
-            Hono["🔥 Hono API<br/>REST 接口"]
-        end
-
-        subgraph Storage["存储层"]
-            R2[("📦 R2<br/>对象存储<br/>───────────<br/>• 原始图片<br/>• WebP 版本<br/>• AVIF 版本")]
-        end
-
-        subgraph Data["数据层"]
-            D1[("🗄️ D1<br/>SQLite 数据库<br/>───────────<br/>• 图片元数据<br/>• 标签<br/>• API 密钥")]
-            KV[("⚡ KV<br/>键值存储<br/>───────────<br/>• 响应缓存<br/>• 速率限制")]
-        end
-
-        subgraph Async["异步处理"]
-            Queue["📬 Queues<br/>───────────<br/>• 文件删除<br/>• 批量操作"]
-            Cron["⏰ 定时触发器<br/>───────────<br/>• 清理过期图片<br/>• 每小时执行"]
-        end
-
-        subgraph Transform["图片处理"]
-            Images["🖼️ Cloudflare Images<br/>───────────<br/>• WebP 转换<br/>• AVIF 转换<br/>• 质量优化"]
-        end
-    end
-
-    Browser -->|"HTTPS"| NextJS
-    NextJS -->|"API 请求"| Hono
-    API_Client -->|"直接调用"| Hono
-
-    Hono -->|"读写"| R2
-    Hono -->|"查询/更新"| D1
-    Hono -->|"缓存"| KV
-    Hono -->|"异步任务"| Queue
-    Hono -->|"图片转换"| Images
-
-    Queue -->|"处理"| R2
-    Cron -->|"触发"| Hono
-    Images -->|"输出"| R2
-
-    style Cloudflare fill:#f5f5f5,stroke:#f38020,stroke-width:2px
-    style Vercel fill:#f5f5f5,stroke:#000,stroke-width:2px
-    style Worker fill:#fff3e0,stroke:#f38020
-    style Storage fill:#e3f2fd,stroke:#1976d2
-    style Data fill:#e8f5e9,stroke:#388e3c
-    style Async fill:#fce4ec,stroke:#c2185b
-    style Transform fill:#f3e5f5,stroke:#7b1fa2
-```
-
-### 组件说明
+    Cloudflare Worker
+    ├── Next.js 静态资源（out/）
+    ├── Hono API（/api/*）
+    ├── R2 图片存储
+    ├── D1 图片元数据、标签和管理员账号
+    ├── KV 登录会话和缓存
+    ├── Cloudflare Images 图片转换
+    └── Cron 定时清理
 
 | 组件 | 服务 | 用途 |
 |------|------|------|
-| **前端** | Vercel + Next.js | 管理界面、图片浏览、上传功能 |
-| **API** | Cloudflare Worker + Hono | RESTful API、认证、请求路由 |
-| **存储** | Cloudflare R2 | 存储原始图片和转换后的图片（WebP/AVIF） |
-| **数据库** | Cloudflare D1 | 图片元数据、标签、API 密钥（SQLite） |
-| **缓存** | Cloudflare KV | 响应缓存，减少 D1 查询 |
-| **队列** | Cloudflare Queues（可选） | 异步文件删除、批量处理 |
-| **图片处理** | Cloudflare Images | 实时格式转换和优化 |
-| **定时任务** | Cron Triggers | 定时清理过期图片 |
+| 前端 + API | Cloudflare Worker | Next.js 静态资源与 Hono API |
+| 存储 | Cloudflare R2 | 原图和转换后的图片文件 |
+| 数据库 | Cloudflare D1 | 图片元数据、标签、管理员账号 |
+| 会话/缓存 | Cloudflare KV | 登录会话和响应缓存 |
+| 队列 | Cloudflare Queues（可选） | 异步删除 R2 文件 |
+| 图片转换 | Cloudflare Images | WebP/AVIF 转换和优化 |
+| 定时任务 | Cron Triggers | 重试删除任务和清理过期图片 |
 
 ## 功能特性
 
-- **多格式支持** - 上传 JPEG、PNG、GIF、WebP、AVIF 图片
-- **自动转换** - 自动生成 WebP 和 AVIF 版本以优化传输
-- **标签管理** - 使用标签组织图片，支持批量操作
-- **随机图片 API** - 公开 API，支持多种过滤条件
-- **过期支持** - 为临时图片设置过期时间
-- **现代化 UI** - 简洁的管理界面，支持深色模式
+- 多格式支持：JPEG、PNG、GIF、WebP、AVIF
+- 自动生成 WebP 和 AVIF 版本
+- 标签管理和批量标签操作
+- 公开随机图片 API
+- 临时图片过期时间
+- 支持深色模式的管理界面
 
 ## 技术栈
 
 | 组件 | 技术 |
 |------|------|
-| 前端 | Next.js 16, React 19, Tailwind CSS |
-| 后端 | Cloudflare Workers, Hono |
+| 前端 | Next.js 16、React 19、Tailwind CSS |
+| 后端 | Cloudflare Workers、Hono |
 | 存储 | Cloudflare R2 |
-| 数据库 | Cloudflare D1 (SQLite) |
-| 缓存 | Cloudflare KV |
+| 数据库 | Cloudflare D1（SQLite） |
+| 缓存和会话 | Cloudflare KV |
+| 图片处理 | Cloudflare Images |
 
 ## 快速开始
 
 ### 前置条件
 
-- Node.js >= 24
-- [pnpm](https://pnpm.io/) 包管理器
-- [Cloudflare 账户](https://dash.cloudflare.com/)
-- [Vercel 账户](https://vercel.com/)（或其他静态托管服务）
+- Node.js 24 或更高版本
+- pnpm 10.x
+- Cloudflare 账户
+
+锁文件使用 pnpm 10 维护。pnpm 11 可能会改写锁文件元数据，建议部署时使用 pnpm 10。
 
 ### 1. 克隆并安装
 
-```bash
-git clone https://github.com/yourusername/cattopic.git
-cd cattopic
-pnpm install
-cd worker && pnpm install
-```
+    git clone https://github.com/yourusername/cattopic.git
+    cd cattopic
+    npx --yes pnpm@10.24.0 install --frozen-lockfile
+    npx --yes pnpm@10.24.0 -C worker install --frozen-lockfile
 
 ### 2. 创建 Cloudflare 资源
 
-```bash
-cd worker
-pnpm wrangler login
+    npx --yes pnpm@10.24.0 -C worker exec wrangler login
+    npx --yes pnpm@10.24.0 -C worker exec wrangler r2 bucket create cattopic-r2 --location=apac
+    npx --yes pnpm@10.24.0 -C worker exec wrangler d1 create CattoPic-D1 --location=apac
+    npx --yes pnpm@10.24.0 -C worker exec wrangler kv namespace create CACHE_KV
 
-# 创建 R2 存储桶
-pnpm wrangler r2 bucket create cattopic-r2
+记录 R2、D1 和 KV 返回的资源 ID。新数据库执行初始化：
 
-# 创建 D1 数据库
-pnpm wrangler d1 create CattoPic-D1
-# 记录输出中的 database_id
+    npx --yes pnpm@10.24.0 -C worker exec wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
 
-# 创建 KV 命名空间
-pnpm wrangler kv namespace create CACHE_KV
-# 记录输出中的 id
+已有部署不要重复执行 schema.sql。
 
-# （可选）创建队列 - 仅在 USE_QUEUE = 'true' 时需要
-# 需要 Cloudflare Workers 付费计划
-pnpm wrangler queues create cattopic-delete-queue
+队列是可选的。只有将生产配置中的 USE_QUEUE 设置为 true 时，才需要创建队列：
 
-# 初始化数据库表结构
-pnpm wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
-```
+    npx --yes pnpm@10.24.0 -C worker exec wrangler queues create cattopic-delete-queue
 
-### 3. 配置 Worker
+### 3. 配置生产 Worker
 
-```bash
-cp wrangler.example.toml wrangler.toml
-```
+生产部署使用仓库中的 worker/wrangler.prod.toml。替换其中的：
 
-编辑 `wrangler.toml`，填入你的资源 ID：
+- R2_PUBLIC_URL：图片文件的公开访问域名
+- CORS_ORIGINS：独立前端域名或其他跨域浏览器客户端的来源
+- R2 bucket 名称
+- D1 数据库名称和 ID
+- KV namespace ID
 
-```toml
-[vars]
-R2_PUBLIC_URL = 'https://your-r2-domain.com'
-# 设置为 'true' 启用 Cloudflare Queues 异步删除 R2 文件
-# 设置为 'false' 或不设置则使用同步删除（无需 Queue）
-USE_QUEUE = 'false'
+必须保留静态资源配置：
 
-[[r2_buckets]]
-bucket_name = 'cattopic-r2'
+    [assets]
+    directory = '../out'
+    binding = 'ASSETS'
+    html_handling = 'auto-trailing-slash'
 
-[[d1_databases]]
-database_name = 'CattoPic-D1'
-database_id = '<你的数据库ID>'
+前端和 API 使用同一个 Worker 域名时，当前 origin 会自动放行。不要再复制旧版 wrangler.example.toml，也不需要配置 Vercel。
 
-[[kv_namespaces]]
-id = "<你的KV-ID>"
+### 4. 构建并部署单 Worker
 
-# （可选）仅在 USE_QUEUE = 'true' 时需要
-# [[queues.producers]]
-# queue = "cattopic-delete-queue"
-#
-# [[queues.consumers]]
-# queue = "cattopic-delete-queue"
-```
+在仓库根目录执行：
 
-### 4. 部署 Worker
+    npx --yes pnpm@10.24.0 install --frozen-lockfile
+    npx --yes pnpm@10.24.0 run build
+    npx --yes pnpm@10.24.0 -C worker install --frozen-lockfile
+    npx --yes pnpm@10.24.0 -C worker exec tsc --noEmit
+    npx --yes pnpm@10.24.0 -C worker exec wrangler deploy --config wrangler.prod.toml
 
-**方式 A：手动部署**
+前端构建会生成 out/，Wrangler 会将它作为同一个 Worker 的静态 Assets 上传。部署后，以下地址由同一个 Worker 提供：
 
-```bash
-pnpm wrangler deploy
-```
+    https://cattopic-worker.<你的子域名>.workers.dev/
+    https://cattopic-worker.<你的子域名>.workers.dev/api/random
 
-**方式 B：GitHub Actions（推荐 Fork 用户使用）**
+### 5. 初始化管理员账号
 
-使用 GitHub Actions 部署可避免同步上游时的配置冲突。
+部署后打开 Worker 地址的 /admin/setup，创建第一个用户名和密码。密码以 PBKDF2 哈希保存到 D1，会话保存到 KV。
 
-1. **创建 API Token**：前往 [Cloudflare API Tokens](https://dash.cloudflare.com/profile/api-tokens) → Create Token → 选择 "Edit Cloudflare Workers" 模板
+之后访问 /admin/login 登录。管理、上传、删除等受保护接口使用 HttpOnly 的 cattopic_session Cookie；/api/random 保持公开。
 
-2. **获取 Account ID**：运行 `pnpm wrangler whoami` 查看你的 Account ID
+检查初始化状态：
 
-3. **配置 GitHub Secrets**（Settings → Secrets and variables → Actions）：
+    curl https://cattopic-worker.<你的子域名>.workers.dev/api/auth/session
+
+### 6. GitHub Actions 自动部署
+
+Deploy Worker workflow 会构建前端、检查 Worker 类型并部署 worker/wrangler.prod.toml。
+
+GitHub 仓库只需要配置：
 
 | Secret | 说明 |
 |--------|------|
-| `CLOUDFLARE_API_TOKEN` | 你的 API Token |
-| `CLOUDFLARE_ACCOUNT_ID` | 你的 Account ID |
-| `WRANGLER_TOML` | 完整的 `wrangler.toml` 文件内容 |
+| CLOUDFLARE_API_TOKEN | 具有 Worker 部署权限的 Cloudflare API Token |
+| CLOUDFLARE_ACCOUNT_ID | Cloudflare Account ID |
 
-4. **触发方式**：推送到 main 分支的 `worker/**` 目录，或在 Actions 标签页手动触发
-
-### 5. 添加 API Key
-
-```bash
-pnpm wrangler d1 execute CattoPic-D1 --remote --command "
-INSERT INTO api_keys (key, created_at) VALUES ('your-secure-api-key', datetime('now'));
-"
-```
-
-### 6. 部署前端
-
-在 Vercel 配置环境变量后部署：
-
-| 变量名 | 值 |
-|--------|-----|
-| `NEXT_PUBLIC_API_URL` | `https://your-worker.workers.dev` |
-| `NEXT_PUBLIC_REMOTE_PATTERNS` | `https://your-worker.workers.dev,https://r2`|
+不再需要 WRANGLER_TOML。推送前端、Worker、构建配置或 workflow 改动到 main，或在 Actions 页面手动运行。
 
 ## 升级已有部署
 
-`schema.sql` 是新安装的基线表结构。已有部署应继续使用当前 D1 数据库；API Key 仍保存在 `api_keys` 表中。
+保留原有 D1 数据库和 R2 bucket，不要重新初始化数据库。
 
-本版本新增 `deletion_jobs` 表，用于可靠重试 R2 文件清理。已有部署不需要手动执行 D1 迁移命令：Worker 会在删除/清理逻辑首次需要时，通过 D1 binding 自动创建这张表。
+admin_users 表会在首次访问 setup 或 login 时自动创建。旧版 api_keys 表即使存在也不再使用。deletion_jobs 表也会在删除逻辑首次需要时自动创建，本次升级不需要手动迁移。
 
-### Fork + GitHub Actions 部署
+如果之前使用 Vercel + Worker：
 
-1. 将上游变更同步或合并到你的 fork。
-2. 保留现有 GitHub Secrets：`CLOUDFLARE_API_TOKEN`、`CLOUDFLARE_ACCOUNT_ID`、`WRANGLER_TOML`。
-3. 推送到 `main`，或在 Actions 页面手动运行 `Deploy Worker` workflow。
-4. 本次升级不需要额外执行 D1 命令。
+1. 在 worker/wrangler.prod.toml 中填入原有资源绑定。
+2. 如果继续使用旧前端域名，将它填入 CORS_ORIGINS。
+3. 按上面的命令构建并部署单 Worker。
+4. 验证 Worker 地址后，再移除旧的 Vercel 部署。
 
-### 本地拉取 + 手动部署
+## 本地开发
 
-```bash
-git pull
-corepack pnpm install --frozen-lockfile
-corepack pnpm -C worker install --frozen-lockfile
-corepack pnpm -C worker exec tsc --noEmit
-corepack pnpm -C worker wrangler deploy
-```
+本地开发仍然分别运行前端和 Worker。
 
-不需要轮换 API Key。不要把 API Key 配置成 Worker Secret；D1 仍然是唯一的 API Key 来源。
+终端 1：
+
+    cd worker
+    npx --yes pnpm@10.24.0 dev
+
+终端 2（仓库根目录）：
+
+    npx --yes pnpm@10.24.0 dev
+
+Worker 地址为 http://localhost:8787，Next.js 地址为 http://localhost:3000。在仓库根目录创建 .env.local：
+
+    NEXT_PUBLIC_API_URL=http://localhost:8787
+
+生产环境不需要 NEXT_PUBLIC_API_URL，前端会使用同源 /api/* 请求。
 
 ## API 概览
 
-### 公开接口
-
-#### 随机图片
-
-```bash
-GET /api/random
-```
-
-返回一张随机图片，支持过滤：
-
-```bash
-# 获取横向随机图片
-curl "https://api.example.com/api/random?orientation=landscape"
-
-# 按标签过滤
-curl "https://api.example.com/api/random?tags=nature,outdoor"
-
-# 排除标签
-curl "https://api.example.com/api/random?exclude=private"
-
-# 指定返回格式
-curl "https://api.example.com/api/random?format=webp"
-
-# 组合过滤条件
-curl "https://api.example.com/api/random?orientation=portrait&tags=cat&format=avif"
-```
-
-| 参数 | 可选值 | 说明 |
-|------|--------|------|
-| `orientation` | `landscape`, `portrait`, `auto` | 图片方向（auto 根据 User-Agent 自动判断） |
-| `tags` | 逗号分隔 | 包含所有指定标签的图片 |
-| `exclude` | 逗号分隔 | 排除包含任一指定标签的图片 |
-| `format` | `original`, `webp`, `avif` | 返回格式（未指定时自动协商） |
-
-### 受保护接口
-
-其他接口需要认证：
-
-```bash
-Authorization: Bearer <your-api-key>
-```
+公开接口：
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/upload/single` | 上传图片 |
-| GET | `/api/images` | 获取图片列表（分页） |
-| GET | `/api/images/:id` | 获取图片详情 |
-| PUT | `/api/images/:id` | 更新图片元数据 |
-| DELETE | `/api/images/:id` | 删除图片 |
-| GET | `/api/tags` | 获取所有标签 |
-| POST | `/api/tags` | 创建标签 |
-| PUT | `/api/tags/:name` | 重命名标签 |
-| DELETE | `/api/tags/:name` | 删除标签及关联图片 |
-| POST | `/api/tags/batch` | 批量标签操作 |
+| GET | /api/random | 随机获取图片 |
+| GET | /api/auth/session | 获取初始化和会话状态 |
+| POST | /api/auth/setup | 创建第一个管理员账号 |
+| POST | /api/auth/login | 登录并创建会话 |
+| POST | /api/auth/logout | 退出登录 |
+
+受保护接口需要 cattopic_session Cookie，包括：
+
+- POST /api/auth/account：修改管理员账号信息
+- POST /api/upload/single：上传图片
+- GET、PUT、DELETE /api/images/:id：查看、修改和删除图片
+- GET /api/images：获取图片列表
+- GET、POST、PUT、DELETE /api/tags：标签管理
+- POST /api/tags/batch：批量标签操作
+- GET、PUT /api/config：读取和修改配置
+- GET /api/admin/stats：获取统计数据
+- POST /api/cleanup：执行清理
+
+详细请求和响应格式请参考 API.md。API.md 中部分 API Key 示例来自旧版本，当前管理端请使用网页登录会话。
 
 ## 文档
 
@@ -304,22 +203,21 @@ Authorization: Bearer <your-api-key>
 - [API 文档](./API.md)（中文）
 - [API 文档](./API_EN.md)（英文）
 
-## 本地开发
+## 常见问题
 
-```bash
-# 终端 1：启动 Worker
-cd worker
-pnpm dev
+### 401 未授权
 
-# 终端 2：启动前端
-pnpm dev
-```
+打开 /admin/login 登录。如果提示需要初始化，先打开 /admin/setup。也可以访问 /api/auth/session 检查会话状态。
 
-创建 `.env.local`：
+### 重置管理员
 
-```env
-NEXT_PUBLIC_API_URL=http://localhost:8787
-```
+在远程 D1 中删除 admin_users 的唯一记录，然后重新打开 /admin/setup：
+
+    npx --yes pnpm@10.24.0 -C worker exec wrangler d1 execute CattoPic-D1 --remote --command "DELETE FROM admin_users;"
+
+### 图片上传后无法访问
+
+检查 R2_PUBLIC_URL、R2 公共访问配置和自定义域名 DNS 是否已经生效。
 
 ## 许可证
 

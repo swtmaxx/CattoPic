@@ -64,8 +64,6 @@ export default function Manage() {
   const listContainerRef = useRef<HTMLDivElement | null>(null);
 
   const authenticated = status?.authenticated === true;
-  const isTouchDevice = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
-
   // TanStack Query hooks
   const {
     images,
@@ -118,6 +116,27 @@ export default function Manage() {
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
+    });
+  }, []);
+
+  const handleGridImageClick = useCallback((image: ImageFile, event: MouseEvent) => {
+    if (suppressNextClickRef.current) {
+      suppressNextClickRef.current = false;
+      event.preventDefault();
+      return;
+    }
+    if (boxSelectMode) {
+      event.stopPropagation();
+      toggleSelect(image.id);
+      return;
+    }
+    handleImageSelect(image);
+  }, [boxSelectMode, handleImageSelect, toggleSelect]);
+
+  const toggleBatchMode = useCallback(() => {
+    setBoxSelectMode((enabled) => {
+      if (enabled) setSelectedIds(new Set());
+      return !enabled;
     });
   }, []);
 
@@ -358,6 +377,11 @@ export default function Manage() {
     });
   }, [deleteImageMutation]);
 
+  const handleListDelete = useCallback((id: string) => {
+    if (!window.confirm("确定删除这张图片吗？此操作不可恢复。")) return;
+    void handleDelete(id);
+  }, [handleDelete]);
+
   // 重命名
   const handleRename = useCallback((image: ImageFile) => {
     const name = window.prompt("输入新的文件名：", image.originalName);
@@ -468,19 +492,16 @@ export default function Manage() {
             随机API
           </button>
           <button
-            onClick={() => {
-              setBoxSelectMode((enabled) => !enabled);
-            }}
+            onClick={toggleBatchMode}
             className={`btn-secondary px-3 py-2.5 sm:px-4 ${
               boxSelectMode
                 ? "border-[var(--accent-600)] bg-[var(--accent-600)] text-white hover:bg-[var(--accent-700)]"
                 : ""
             }`}
-            title={isTouchDevice ? "开启后使用点击和复选框批量选择" : "开启后可拖动框选图片"}
+            title="开启后可选择图片，桌面端支持拖动框选"
           >
             <CheckIcon className="h-4 w-4" />
-            <span className="hidden sm:inline">批量管理</span>
-            <span className="sm:hidden">批量选择</span>
+            批量管理
           </button>
           <div className="view-switcher flex overflow-hidden">
             <button
@@ -560,16 +581,16 @@ export default function Manage() {
           </div>
           <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
             <button onClick={selectAllVisible} className="btn-secondary shrink-0 px-3 py-2">
-              <CheckIcon className="h-4 w-4" /> <span className="hidden sm:inline">全选当前</span><span className="sm:hidden">全选</span>
+              <CheckIcon className="h-4 w-4" /> 全选当前
             </button>
             <button onClick={clearSelection} className="btn-secondary shrink-0 px-3 py-2">
-              <Cross1Icon className="h-4 w-4" /> <span className="hidden sm:inline">取消选择</span><span className="sm:hidden">取消</span>
+              <Cross1Icon className="h-4 w-4" /> 取消选择
             </button>
             <button onClick={handleBatchTag} className="btn-secondary shrink-0 border-[var(--accent-200)] bg-[var(--accent-50)] px-3 py-2 text-[var(--accent-700)] hover:bg-[var(--accent-100)]">
-              <TagIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量打标签</span><span className="sm:hidden">加标签</span>
+              <TagIcon className="h-4 w-4" /> 批量打标签
             </button>
             <button onClick={() => setShowBatchRemoveTagsModal(true)} className="btn-secondary shrink-0 px-3 py-2 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30">
-              <TagIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量删除标签</span><span className="sm:hidden">删标签</span>
+              <TagIcon className="h-4 w-4" /> 批量删除标签
             </button>
             <select
               value={batchCopyFormat}
@@ -582,10 +603,10 @@ export default function Manage() {
               <option value="avif">AVIF</option>
             </select>
             <button onClick={() => void handleBatchCopyLinks()} className="btn-secondary shrink-0 border-[var(--accent-200)] bg-[var(--accent-50)] px-3 py-2 text-[var(--accent-700)] hover:bg-[var(--accent-100)]">
-              <CopyIcon className="h-4 w-4" /> <span className="hidden sm:inline">复制选中链接</span><span className="sm:hidden">复制</span>
+              <CopyIcon className="h-4 w-4" /> 复制选中链接
             </button>
             <button onClick={handleBatchDelete} className="btn-secondary shrink-0 border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
-              <TrashIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量删除</span><span className="sm:hidden">删除</span>
+              <TrashIcon className="h-4 w-4" /> 批量删除
             </button>
           </div>
         </motion.div>
@@ -610,11 +631,11 @@ export default function Manage() {
                 <VirtualImageMasonry
                   images={images}
                   layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${gridGapless ? "gapless" : "gapped"}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
-                  onImageClick={handleImageSelect}
+                  onImageClick={handleGridImageClick}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   fetchNextPage={fetchNextPage}
-                  selectable
+                  selectable={boxSelectMode}
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   lanesOverride={gridColumns}
@@ -626,7 +647,7 @@ export default function Manage() {
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   onSelect={handleImageSelect}
-                  onDelete={handleDelete}
+                  onDelete={handleListDelete}
                   onRename={handleRename}
                   onView={handleImageDoubleClick}
                   hasNextPage={hasNextPage}

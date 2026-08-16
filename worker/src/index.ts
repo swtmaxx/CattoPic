@@ -22,7 +22,10 @@ const app = new Hono<{ Bindings: Env }>();
 // Credentialed CORS is restricted to explicitly trusted frontend origins.
 app.use('*', async (c, next) => {
   const origin = c.req.header('Origin');
-  const allowed = isAllowedCorsOrigin(origin ?? null, c.env);
+  const currentOrigin = new URL(c.req.url).origin;
+  const isTrustedOrigin = (candidate: string | null) =>
+    candidate === currentOrigin || isAllowedCorsOrigin(candidate, c.env);
+  const allowed = isTrustedOrigin(origin ?? null);
   const isMutating = ['POST', 'PUT', 'PATCH', 'DELETE'].includes(c.req.method);
 
   // Reject cross-site state changes even when the browser does not expose the
@@ -35,7 +38,7 @@ app.use('*', async (c, next) => {
   }
 
   return cors({
-    origin: (requestOrigin) => isAllowedCorsOrigin(requestOrigin, c.env) ? requestOrigin : null,
+    origin: (requestOrigin) => isTrustedOrigin(requestOrigin) ? requestOrigin : null,
     allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
     allowHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
@@ -144,8 +147,24 @@ async function queueHandler(
   await handleQueueBatch(batch, env);
 }
 
+async function fetchHandler(
+  request: Request,
+  env: Env,
+  ctx: ExecutionContext
+): Promise<Response> {
+  const pathname = new URL(request.url).pathname;
+
+  // Keep API and favicon routes in Hono. Every other request is a frontend
+  // asset, including direct navigation to /admin and /manage.
+  if (pathname === '/api' || pathname.startsWith('/api/') || pathname === '/favicon.ico' || pathname === '/favicon.svg') {
+    return app.fetch(request, env, ctx);
+  }
+
+  return env.ASSETS.fetch(request);
+}
+
 const handlers = {
-  fetch: app.fetch,
+  fetch: fetchHandler,
   scheduled: scheduledHandler,
   queue: queueHandler,
 };

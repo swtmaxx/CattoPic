@@ -13,12 +13,9 @@ flowchart TB
         API_Client["📱 API Client"]
     end
 
-    subgraph Vercel["Vercel"]
-        NextJS["⚛️ Next.js 16<br/>React 19 + Tailwind CSS"]
-    end
-
     subgraph Cloudflare["Cloudflare Edge Network"]
         subgraph Worker["Worker Runtime"]
+            NextJS["⚛️ Static Next.js Assets<br/>React 19 + Tailwind CSS"]
             Hono["🔥 Hono API<br/>REST Endpoints"]
         end
 
@@ -27,7 +24,7 @@ flowchart TB
         end
 
         subgraph Data["Data Layer"]
-            D1[("🗄️ D1<br/>SQLite Database<br/>───────────<br/>• Image metadata<br/>• Tags<br/>• API keys")]
+            D1[("🗄️ D1<br/>SQLite Database<br/>───────────<br/>• Image metadata<br/>• Tags<br/>• Admin account")]
             KV[("⚡ KV<br/>Key-Value Store<br/>───────────<br/>• Response cache<br/>• Rate limiting")]
         end
 
@@ -56,7 +53,6 @@ flowchart TB
     Images -->|"Output"| R2
 
     style Cloudflare fill:#f5f5f5,stroke:#f38020,stroke-width:2px
-    style Vercel fill:#f5f5f5,stroke:#000,stroke-width:2px
     style Worker fill:#fff3e0,stroke:#f38020
     style Storage fill:#e3f2fd,stroke:#1976d2
     style Data fill:#e8f5e9,stroke:#388e3c
@@ -68,10 +64,9 @@ flowchart TB
 
 | Component | Service | Purpose |
 |-----------|---------|---------|
-| **Frontend** | Vercel + Next.js | Management UI, image browser, upload interface |
-| **API** | Cloudflare Worker + Hono | RESTful API, authentication, request routing |
+| **Frontend + API** | Cloudflare Worker | Next.js static Assets + Hono API |
 | **Storage** | Cloudflare R2 | Store original and converted images (WebP/AVIF) |
-| **Database** | Cloudflare D1 | Image metadata, tags, API keys (SQLite) |
+| **Database** | Cloudflare D1 | Image metadata, tags, admin account (SQLite) |
 | **Cache** | Cloudflare KV | Response caching, reduce D1 queries |
 | **Queue** | Cloudflare Queues (optional) | Async file deletion, batch processing |
 | **Images** | Cloudflare Images | On-the-fly format conversion and optimization |
@@ -103,7 +98,6 @@ flowchart TB
 - Node.js >= 24
 - [pnpm](https://pnpm.io/) package manager
 - [Cloudflare account](https://dash.cloudflare.com/)
-- [Vercel account](https://vercel.com/) (or any static hosting)
 
 ### 1. Clone and Install
 
@@ -141,15 +135,12 @@ pnpm wrangler d1 execute CattoPic-D1 --remote --file=schema.sql
 
 ### 3. Configure Worker
 
-```bash
-cp wrangler.example.toml wrangler.toml
-```
-
-Edit `wrangler.toml` with your resource IDs:
+Production deployment uses the committed `worker/wrangler.prod.toml`. Replace the resource IDs and public domains if you deploy to your own Cloudflare account:
 
 ```toml
 [vars]
 R2_PUBLIC_URL = 'https://your-r2-domain.com'
+CORS_ORIGINS = 'https://your-worker-domain.com'
 # Set to 'true' to use Cloudflare Queues for async R2 deletion
 # Set to 'false' or remove for synchronous deletion (no Queue required)
 USE_QUEUE = 'false'
@@ -164,6 +155,11 @@ database_id = '<your-database-id>'
 [[kv_namespaces]]
 id = "<your-kv-id>"
 
+[assets]
+directory = '../out'
+binding = 'ASSETS'
+html_handling = 'auto-trailing-slash'
+
 # (Optional) Only needed if USE_QUEUE = 'true'
 # [[queues.producers]]
 # queue = "cattopic-delete-queue"
@@ -172,15 +168,18 @@ id = "<your-kv-id>"
 # queue = "cattopic-delete-queue"
 ```
 
-### 4. Deploy Worker
-
-**Option A: Manual Deploy**
+### 4. Build and Deploy the Single Worker
 
 ```bash
-pnpm wrangler deploy
+pnpm install --frozen-lockfile
+pnpm build
+pnpm -C worker install --frozen-lockfile
+pnpm -C worker wrangler deploy --config wrangler.prod.toml
 ```
 
-**Option B: GitHub Actions (Recommended for Fork users)**
+The generated `out/` directory is served by the same Worker. Requests under `/api/*` are handled by Hono.
+
+**GitHub Actions**
 
 GitHub Actions deployment avoids configuration conflicts when syncing upstream.
 
@@ -194,9 +193,8 @@ GitHub Actions deployment avoids configuration conflicts when syncing upstream.
 |--------|-------------|
 | `CLOUDFLARE_API_TOKEN` | Your API Token |
 | `CLOUDFLARE_ACCOUNT_ID` | Your Account ID |
-| `WRANGLER_TOML` | Complete content of your `wrangler.toml` file |
 
-4. **Trigger**: Push to `worker/**` on main branch, or manually trigger via Actions tab
+4. **Trigger**: Push frontend or Worker changes to `main`, or manually trigger via Actions tab
 
 ### 5. 初始化管理员账号（网页）
 
@@ -204,27 +202,22 @@ GitHub Actions deployment avoids configuration conflicts when syncing upstream.
 
 > 旧版基于 API Key 的鉴权已移除；`api_keys` 表保留但不再使用。
 
-### 6. Deploy Frontend
+### 6. Access the Frontend
 
-Deploy to Vercel with environment variable:
+The Worker URL serves both the frontend and API. No `NEXT_PUBLIC_API_URL` is required in production because API requests use the same origin.
 
-| Variable | Value |
-|----------|-------|
-| `NEXT_PUBLIC_API_URL` | `https://your-worker.workers.dev` |
-| `NEXT_PUBLIC_REMOTE_PATTERNS` | `https://your-worker.workers.dev,https://r2`|
-
-> 后台管理需要登录（用户名/密码会话）。上传、删除、管理接口全部要求登录态；随机图 API（`/api/random`）保持公开。
+Open `/admin/setup` on the Worker domain to create the first administrator. Protected management and upload APIs require the username/password session; `/api/random` remains public.
 
 ## Upgrading Existing Deployments
 
-`schema.sql` is the baseline for new installations. Existing deployments should keep their current D1 database; API keys remain in the `api_keys` table.
+`schema.sql` is the baseline for new installations. Existing deployments should keep their current D1 database. The current release creates the `admin_users` table lazily when setup or login is first called; the legacy `api_keys` table, if present, is no longer used.
 
 This release adds a `deletion_jobs` table for reliable R2 cleanup. Existing deployments do not need a manual D1 migration command: the Worker creates the table through the D1 binding the first time delete/cleanup code needs it.
 
 ### Fork + GitHub Actions
 
 1. Sync or merge upstream changes into your fork.
-2. Keep your existing GitHub Secrets: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, and `WRANGLER_TOML`.
+2. Keep your existing GitHub Secrets: `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`.
 3. Push to `main` or run the `Deploy Worker` workflow manually.
 4. No D1 command is required for this upgrade.
 
@@ -232,13 +225,14 @@ This release adds a `deletion_jobs` table for reliable R2 cleanup. Existing depl
 
 ```bash
 git pull
-corepack pnpm install --frozen-lockfile
-corepack pnpm -C worker install --frozen-lockfile
-corepack pnpm -C worker exec tsc --noEmit
-corepack pnpm -C worker wrangler deploy
+npx --yes pnpm@10.24.0 install --frozen-lockfile
+npx --yes pnpm@10.24.0 run build
+npx --yes pnpm@10.24.0 -C worker install --frozen-lockfile
+npx --yes pnpm@10.24.0 -C worker exec tsc --noEmit
+npx --yes pnpm@10.24.0 -C worker exec wrangler deploy --config wrangler.prod.toml
 ```
 
-No API key rotation is required. Do not configure an API key as a Worker secret; D1 remains the only API key source.
+No API key rotation is required. Create or change the administrator from the web interface; passwords are stored as PBKDF2 hashes and sessions are stored in KV.
 
 ## API Overview
 
@@ -278,10 +272,10 @@ curl "https://api.example.com/api/random?orientation=portrait&tags=cat&format=av
 
 ### Protected Endpoints
 
-All other endpoints require authentication:
+All management endpoints require the administrator session cookie created by `/api/auth/login`:
 
 ```bash
-Authorization: Bearer <your-api-key>
+Cookie: cattopic_session=<HttpOnly session token>
 ```
 
 | Method | Endpoint | Description |
