@@ -92,7 +92,7 @@ export default function TagManagement() {
   if (isLoading) {
     return (
       <div className="flex justify-center items-center h-64">
-        <Spinner className="h-12 w-12 text-indigo-500" />
+        <Spinner className="h-10 w-10 text-[var(--accent-500)]" />
       </div>
     );
   }
@@ -127,21 +127,21 @@ export default function TagManagement() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: 'auto' }}
             exit={{ opacity: 0, height: 0 }}
-            className="flex items-center justify-between p-4 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl border border-indigo-200 dark:border-indigo-800"
+            className="batch-toolbar flex flex-col items-stretch gap-3 p-4 sm:flex-row sm:items-center sm:justify-between"
           >
-            <span className="text-indigo-700 dark:text-indigo-300 text-sm font-medium">
+            <span className="text-sm font-medium text-[var(--accent-700)] dark:text-[var(--accent-200)]">
               已选择 {selectedTags.size} 个标签
             </span>
-            <div className="flex space-x-2">
+            <div className="flex gap-2">
               <button
                 onClick={clearSelection}
-                className="px-3 py-1.5 text-sm text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-colors"
+                className="btn-secondary flex-1 px-3 py-1.5 text-sm sm:flex-none"
               >
                 取消选择
               </button>
               <button
                 onClick={() => setShowBatchDeleteConfirm(true)}
-                className="flex items-center space-x-1.5 px-3 py-1.5 text-sm bg-red-500 hover:bg-red-600 text-white rounded-lg transition-colors"
+                className="flex min-h-11 flex-1 items-center justify-center space-x-1.5 rounded-lg bg-red-500 px-3 py-1.5 text-sm text-white transition-colors hover:bg-red-600 sm:flex-none"
               >
                 <TrashIcon className="h-4 w-4" />
                 <span>批量删除</span>

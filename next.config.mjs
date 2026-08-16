@@ -43,6 +43,7 @@ const remotePatterns = parseRemotePatterns(process.env.NEXT_PUBLIC_REMOTE_PATTER
 
 const nextConfig = {
   reactStrictMode: true,
+  allowedDevOrigins: ['localhost', '127.0.0.1'],
   output: isStaticExport ? 'export' : undefined,
   images: {
     // Disable Next.js image optimization; images are already delivered as transformed URLs.

@@ -5,11 +5,11 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { api } from './utils/request'
 import { concurrentUpload } from './utils/concurrentUpload'
-import { UploadResponse, StatusMessage as StatusMessageType, ConfigSettings, ImageFile, UploadResult, ImageListResponse } from './types'
+import { StatusMessage as StatusMessageType, ConfigSettings, ImageFile, UploadResult, ImageListResponse } from './types'
 import Header from './components/Header'
 import UploadSection from './components/UploadSection'
-import UploadResultPanel from './components/upload/UploadResultPanel'
 import UploadStatusList from './components/upload/UploadStatusList'
+import ToastContainer from './components/ToastContainer'
 import { motion } from 'motion/react'
 import { LockClosedIcon, Spinner } from './components/ui/icons'
 import { useInvalidateImages } from './hooks/useImages'
@@ -24,7 +24,6 @@ export default function Home() {
   const router = useRouter()
   const { status: sessionStatus, loading: sessionLoading, logout } = useSession()
   const [status, setStatus] = useState<StatusMessageType | null>(null)
-  const [uploadResults, setUploadResults] = useState<UploadResponse['results']>([])
   const [maxUploadCount, setMaxUploadCount] = useState(DEFAULT_MAX_UPLOAD_COUNT)
   const [selectedTags, setSelectedTags] = useState<string[]>([])
   const [concurrency, setConcurrency] = useState(5)
@@ -270,7 +269,6 @@ export default function Home() {
         }
       })
 
-      setUploadResults(resultsWithIds)
       const successCount = resultsWithIds.filter(r => r.status === 'success').length
       const failedCount = resultsWithIds.filter(r => r.status === 'error').length
       const totalCount = resultsWithIds.length
@@ -313,14 +311,12 @@ export default function Home() {
       .filter((f) => f.status === 'error')
       .map((f) => ({ id: f.id, file: f.file }))
     if (failed.length === 0) return
-    setUploadResults([])
     void handleUpload(failed)
   }, [uploadFiles, handleUpload])
 
   // 清空上传队列与结果
   const handleClearUpload = useCallback(() => {
     resetUploadState()
-    setUploadResults([])
     setStatus(null)
   }, [resetUploadState])
 
@@ -349,14 +345,14 @@ export default function Home() {
 
   if (!authenticated) {
     return (
-      <div className="min-h-screen flex items-center justify-center px-4">
-        <div className="max-w-md w-full bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-8 text-center">
-          <div className="inline-flex p-3 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 mb-4">
-            <LockClosedIcon className="h-6 w-6 text-indigo-500" />
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <div className="card w-full max-w-md p-6 text-center sm:p-8">
+          <div className="mb-4 inline-flex rounded-lg bg-indigo-50 p-3 dark:bg-indigo-900/30">
+            <LockClosedIcon className="h-6 w-6 text-indigo-600 dark:text-indigo-300" />
           </div>
-          <h1 className="text-xl font-bold text-gray-900 dark:text-white mb-2">需要登录</h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">请先登录管理员账号后才能上传图片</p>
-          <Link href="/admin/login" className="inline-block px-6 py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium">
+          <h1 className="mb-2 text-xl font-bold text-gray-900 dark:text-white">需要登录</h1>
+          <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">请先登录管理员账号后才能上传图片</p>
+          <Link href="/admin/login" className="btn-primary w-full px-6 py-2.5 sm:w-auto">
             前往登录
           </Link>
         </div>
@@ -365,7 +361,8 @@ export default function Home() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto px-6 py-8" style={mainContentStyle}>
+    <div className="home-page app-page max-w-5xl px-3 py-4 sm:px-6 sm:py-8" style={mainContentStyle}>
+      <ToastContainer />
       <Header onLogoutClick={handleLogout} authenticated={authenticated} />
 
       {status && (
@@ -373,12 +370,12 @@ export default function Home() {
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className={`mb-6 p-4 rounded-xl ${
+          className={`status-panel mb-6 ${
             status.type === "success"
-              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
+              ? "success"
               : status.type === "warning"
-              ? "bg-yellow-50 dark:bg-yellow-900/20 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-800"
-              : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+              ? "warning"
+              : "error"
           }`}
         >
           {status.message}
@@ -403,9 +400,6 @@ export default function Home() {
         onRetryFailed={handleRetryFailed}
         onClear={handleClearUpload}
       />
-
-      {/* 上传结果面板：上传成功后显示 4 种链接（原图/WebP/AVIF/Markdown） */}
-      <UploadResultPanel results={uploadResults} onClear={() => setUploadResults([])} />
 
     </div>
   )

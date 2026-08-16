@@ -4,17 +4,15 @@ import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
 import AdminShell from "./components/admin/AdminShell";
 
-// Configure Inter font
 const inter = Inter({
   subsets: ['latin'],
   display: 'swap',
-  weight: ['400', '700'],
+  weight: ['400', '500', '600', '700'],
 });
 
-// Configure Noto Sans SC font with bold weight
 const notoSansSC = Noto_Sans_SC({
   subsets: ['latin'],
-  weight: ['700'],  // Only use bold weight
+  weight: ['400', '500', '600', '700'],
   display: 'swap',
 });
 
@@ -41,8 +39,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="zh-CN" className="light">
-      <body className={`${inter.className} ${notoSansSC.className} page-bg py-10 transition-colors duration-300 light-mode font-bold`}>
+    <html lang="zh-CN">
+      <body className={`${inter.className} ${notoSansSC.className} page-bg`}>
 
         <QueryProvider>
           <AdminShell>{children}</AdminShell>

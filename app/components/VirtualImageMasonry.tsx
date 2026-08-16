@@ -9,15 +9,16 @@ import ImageCard from './ImageCard';
 const GUTTER_PX = 16;
 
 function getLaneCount(containerWidth: number): number {
-  if (containerWidth <= 640) return 1;
+  if (containerWidth <= 380) return 1;
+  if (containerWidth <= 640) return 2;
   if (containerWidth <= 768) return 2;
   if (containerWidth <= 1024) return 3;
   return 4;
 }
 
-function getColumnWidth(containerWidth: number, lanes: number): number {
+function getColumnWidth(containerWidth: number, lanes: number, gutter: number): number {
   const safeLanes = Math.max(1, lanes);
-  const totalGutter = GUTTER_PX * (safeLanes - 1);
+  const totalGutter = gutter * (safeLanes - 1);
   const width = Math.floor((containerWidth - totalGutter) / safeLanes);
   return Math.max(1, width);
 }
@@ -34,8 +35,6 @@ function estimateCardHeight(image: Pick<ImageFile, 'width' | 'height' | 'orienta
 export interface VirtualImageMasonryProps {
   images: ImageFile[];
   onImageClick: (image: ImageFile, event: MouseEvent) => void;
-  onImageDoubleClick?: (image: ImageFile) => void;
-  onDelete: (id: string) => Promise<void>;
   hasNextPage: boolean;
   isFetchingNextPage: boolean;
   fetchNextPage: () => Promise<unknown>;
@@ -45,24 +44,26 @@ export interface VirtualImageMasonryProps {
   onToggleSelect?: (id: string, event?: MouseEvent) => void;
   /** 手动指定网格列数（覆盖自动计算），用于"大小调节"滑块 */
   lanesOverride?: number;
+  /** 网格卡片是否紧贴排列 */
+  gapless?: boolean;
 }
 
 interface VirtualImageMasonryInnerProps extends Omit<VirtualImageMasonryProps, 'layoutKey'> {
   lanes: number;
   columnWidth: number;
+  gutter: number;
   scrollMargin: number;
 }
 
 function VirtualImageMasonryInner({
   images,
   onImageClick,
-  onImageDoubleClick,
-  onDelete,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
   lanes,
   columnWidth,
+  gutter,
   scrollMargin,
   selectable = false,
   selectedIds,
@@ -87,7 +88,7 @@ function VirtualImageMasonryInner({
     overscan,
     lanes,
     scrollMargin,
-    gap: GUTTER_PX,
+    gap: gutter,
   });
 
   useEffect(() => {
@@ -123,7 +124,7 @@ function VirtualImageMasonryInner({
         const image = images[virtualItem.index];
         if (!image) return null;
 
-        const x = virtualItem.lane * (columnWidth + GUTTER_PX);
+        const x = virtualItem.lane * (columnWidth + gutter);
         const y = virtualItem.start - scrollMargin;
 
         return (
@@ -143,8 +144,6 @@ function VirtualImageMasonryInner({
             <ImageCard
               image={image}
               onClick={onImageClick}
-              onDoubleClick={onImageDoubleClick}
-              onDelete={onDelete}
               displayWidth={columnWidth}
               selectable={selectable}
               selected={selectedIds?.has(image.id)}
@@ -160,8 +159,6 @@ function VirtualImageMasonryInner({
 export default function VirtualImageMasonry({
   images,
   onImageClick,
-  onImageDoubleClick,
-  onDelete,
   hasNextPage,
   isFetchingNextPage,
   fetchNextPage,
@@ -170,6 +167,7 @@ export default function VirtualImageMasonry({
   selectedIds,
   onToggleSelect,
   lanesOverride,
+  gapless = false,
 }: VirtualImageMasonryProps) {
   const parentRef = useRef<HTMLDivElement | null>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -206,25 +204,31 @@ export default function VirtualImageMasonry({
     });
   }, [containerWidth, layoutKey]);
 
-  const lanes = useMemo(() => (lanesOverride && lanesOverride >= 1 ? lanesOverride : getLaneCount(containerWidth)), [containerWidth, lanesOverride]);
-  const columnWidth = useMemo(() => getColumnWidth(containerWidth, lanes), [containerWidth, lanes]);
+  const lanes = useMemo(() => {
+    const automatic = getLaneCount(containerWidth);
+    if (!lanesOverride || lanesOverride < 1) return automatic;
+    // 在手机上避免用户设置过多列导致卡片和按钮过小。
+    const maxMobileLanes = containerWidth <= 640 ? 2 : lanesOverride;
+    return Math.min(lanesOverride, maxMobileLanes);
+  }, [containerWidth, lanesOverride]);
+  const gutter = gapless ? 0 : GUTTER_PX;
+  const columnWidth = useMemo(() => getColumnWidth(containerWidth, lanes, gutter), [containerWidth, lanes, gutter]);
 
   const isReady = containerWidth > 0 && scrollMargin !== null;
 
   return (
-    <div ref={parentRef}>
+    <div ref={parentRef} className={`image-grid ${gapless ? 'image-grid-gapless' : ''}`}>
       {isReady ? (
         <VirtualImageMasonryInner
-          key={`${lanes}:${Math.round(scrollMargin)}`}
+          key={`${lanes}:${gutter}:${Math.round(scrollMargin)}`}
           images={images}
           onImageClick={onImageClick}
-          onImageDoubleClick={onImageDoubleClick}
-          onDelete={onDelete}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           fetchNextPage={fetchNextPage}
           lanes={lanes}
           columnWidth={columnWidth}
+          gutter={gutter}
           scrollMargin={scrollMargin}
           selectable={selectable}
           selectedIds={selectedIds}

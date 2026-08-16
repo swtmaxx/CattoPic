@@ -54,18 +54,19 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
   }
 
   return (
-    <div className="mb-6">
-      <div className="flex items-center space-x-4 mb-2">
+    <div className="mb-5">
+      <div className="mb-2 flex flex-col items-stretch gap-2">
         <div className="flex items-center">
-          <TagIcon className="h-5 w-5 mr-2 text-indigo-500" />
-          <span className="text-sm font-medium text-gray-700 dark:text-gray-300">标签：</span>
+          <TagIcon className="mr-2 h-4 w-4 text-[var(--accent-600)]" />
+          <span className="form-label mb-0">标签</span>
         </div>
 
-        <div className="flex-1 flex space-x-2">
+        <div className="flex min-w-0 flex-1 flex-col gap-2">
           <select
             onChange={handleTagChange}
             value=""
-            className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm shadow-xs"
+            aria-label="选择已有标签"
+            className="input-primary w-full px-3 py-2"
           >
             <option value="">选择标签...</option>
             {availableTags
@@ -75,19 +76,19 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
               ))}
           </select>
 
-          <div className="flex">
+          <div className="flex min-w-0 w-full">
             <input
               type="text"
               value={inputTag}
               onChange={handleTagInput}
               onKeyDown={handleKeyDown}
               placeholder="自定义标签"
-              className="px-3 py-2 rounded-l-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm shadow-xs"
+              className="input-primary min-w-0 flex-1 rounded-r-none px-3 py-2"
             />
             <button
               type="button"
               onClick={handleAddTag}
-              className="px-3 py-2 rounded-r-lg bg-indigo-500 hover:bg-indigo-600 text-white font-medium transition-colors duration-200 text-sm flex items-center"
+              className="btn-primary min-h-11 min-w-11 rounded-l-none px-3 py-2"
             >
               <PlusIcon className="h-4 w-4" />
             </button>
@@ -100,9 +101,9 @@ export default function TagSelector({ selectedTags, availableTags, onTagsChange,
           {selectedTags.map(tag => (
             <div
               key={tag}
-              className="bg-indigo-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center shadow-xs"
+              className="tag-chip flex items-center px-2.5 py-1 text-xs font-semibold"
             >
-              <span>{tag}</span>
+              <span className="min-w-0 break-words">{tag}</span>
               <button
                 type="button"
                 onClick={() => handleRemoveTag(tag)}

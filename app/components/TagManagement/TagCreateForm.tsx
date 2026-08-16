@@ -27,23 +27,23 @@ export default function TagCreateForm({ onSubmit, isProcessing }: TagCreateFormP
   };
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md p-6 border border-gray-100 dark:border-gray-700">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+    <div className="card p-4 sm:p-6">
+      <h3 className="mb-4 text-base font-semibold text-[var(--app-ink)]">
         创建新标签
       </h3>
-      <form onSubmit={handleSubmit} className="flex space-x-3">
+      <form onSubmit={handleSubmit} className="flex flex-col gap-2 sm:flex-row sm:gap-3">
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="输入标签名称..."
-          className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all"
+          className="input-primary min-w-0 flex-1 px-4 py-2.5 placeholder:text-[var(--app-faint)]"
           disabled={isProcessing}
         />
         <motion.button
           type="submit"
           disabled={!name.trim() || isProcessing || isSubmitting}
-          className="flex items-center space-x-2 px-5 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+          className="btn-primary px-5 py-2.5 disabled:cursor-not-allowed disabled:opacity-50 sm:w-auto"
           whileHover={{ scale: 1.02 }}
           whileTap={{ scale: 0.98 }}
         >

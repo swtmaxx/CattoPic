@@ -26,37 +26,43 @@ export default function TagList({
 
   if (tags.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-xl shadow-md p-8 text-gray-500 dark:text-gray-400 border border-gray-100 dark:border-gray-700">
-        <TagIcon className="w-16 h-16 mb-4 text-gray-300 dark:text-gray-600" />
-        <p className="text-lg font-medium">暂无标签</p>
-        <p className="mt-2 text-sm">请创建您的第一个标签</p>
+      <div className="flex h-64 flex-col items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface)] p-8 text-[var(--app-muted)] shadow-[var(--app-shadow)]">
+        <TagIcon className="mb-4 h-12 w-12 text-[var(--app-faint)]" />
+        <p className="text-base font-medium">暂无标签</p>
+        <p className="mt-2 text-sm text-[var(--app-faint)]">请创建您的第一个标签</p>
       </div>
     );
   }
 
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden">
+    <div className="image-list-shell overflow-hidden">
       {/* 表头 */}
-      <div className="flex items-center px-4 py-3 bg-gray-50 dark:bg-slate-700/50 border-b border-gray-100 dark:border-gray-700">
+      <div className="flex items-center border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3">
         <button
           onClick={onSelectAll}
           className={`flex items-center justify-center w-5 h-5 rounded border transition-colors mr-4 ${
             allSelected
-              ? 'bg-indigo-500 border-indigo-500'
-              : 'border-gray-300 dark:border-gray-600 hover:border-indigo-400'
+              ? 'border-[var(--accent-600)] bg-[var(--accent-600)]'
+              : 'border-[var(--app-border-strong)] hover:border-[var(--accent-500)]'
           }`}
         >
           {allSelected && <CheckIcon className="h-3.5 w-3.5 text-white" />}
         </button>
-        <div className="flex-1 grid grid-cols-12 gap-4 text-sm font-medium text-gray-600 dark:text-gray-300">
-          <span className="col-span-6">标签名称</span>
-          <span className="col-span-3 text-center">使用数量</span>
-          <span className="col-span-3 text-right">操作</span>
+        <div className="flex-1 text-sm font-medium text-[var(--app-muted)]">
+          <div className="flex items-center justify-between sm:hidden">
+            <span>标签名称</span>
+            <span>操作</span>
+          </div>
+          <div className="hidden grid-cols-12 gap-4 sm:grid">
+            <span className="col-span-6">标签名称</span>
+            <span className="col-span-3 text-center">使用数量</span>
+            <span className="col-span-3 text-right">操作</span>
+          </div>
         </div>
       </div>
 
       {/* 标签项列表 */}
-      <div className="divide-y divide-gray-100 dark:divide-gray-700">
+      <div className="divide-y divide-[var(--app-border)]">
         {tags.map((tag, index) => (
           <motion.div
             key={tag.name}
@@ -76,7 +82,7 @@ export default function TagList({
       </div>
 
       {/* 总计 */}
-      <div className="px-4 py-3 bg-gray-50 dark:bg-slate-700/50 border-t border-gray-100 dark:border-gray-700 text-sm text-gray-500 dark:text-gray-400">
+      <div className="border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-3 text-sm text-[var(--app-muted)]">
         共 {tags.length} 个标签
       </div>
     </div>

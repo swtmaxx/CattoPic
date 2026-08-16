@@ -36,7 +36,7 @@ export default function ImageSidebar({ files, onRemoveFile, onRemoveAll, isOpen,
       ></div>
       
       {/* 侧边栏主体 */}
-      <div className="relative w-80 sm:w-96 h-full bg-white dark:bg-dark-bg-primary shadow-xl flex flex-col animate-slide-in-right">
+      <div className="relative flex h-full w-full flex-col bg-white shadow-xl dark:bg-dark-bg-primary sm:w-96 animate-slide-in-right">
         <div className="p-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
           <h3 className="text-lg font-medium flex items-center">
             <FileIcon className="h-5 w-5 mr-2 text-indigo-500" />
@@ -44,7 +44,7 @@ export default function ImageSidebar({ files, onRemoveFile, onRemoveAll, isOpen,
           </h3>
           <button 
             onClick={onClose}
-            className="rounded-full p-1 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="flex min-h-11 min-w-11 items-center justify-center rounded-full p-1 transition-colors hover:bg-gray-100 dark:hover:bg-gray-800"
           >
             <Cross1Icon className="h-6 w-6" />
           </button>
@@ -80,7 +80,7 @@ export default function ImageSidebar({ files, onRemoveFile, onRemoveAll, isOpen,
           <div className="p-4 border-t border-gray-200 dark:border-gray-700">
             <button
               onClick={onRemoveAll}
-              className="w-full py-2 px-4 flex items-center justify-center bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded-lg transition-colors duration-200"
+              className="flex min-h-11 w-full items-center justify-center rounded-lg bg-red-50 px-4 py-2 text-red-600 transition-colors duration-200 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-400 dark:hover:bg-red-900/30"
             >
               <TrashIcon className="h-4 w-4 mr-2" />
               清除全部文件
@@ -90,4 +90,4 @@ export default function ImageSidebar({ files, onRemoveFile, onRemoveAll, isOpen,
       </div>
     </div>
   )
-} 
+}

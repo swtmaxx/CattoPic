@@ -38,7 +38,7 @@ function TagEditModalContent({
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4"
       onClick={onClose}
     >
       <motion.div
@@ -46,22 +46,22 @@ function TagEditModalContent({
         animate={{ scale: 1, y: 0 }}
         exit={{ scale: 0.9, y: 20 }}
         transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-        className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-700"
+        className="modal-dialog w-full max-w-md bg-[var(--app-surface)] p-4 sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 标题 */}
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center space-x-3">
-            <div className="bg-indigo-100 dark:bg-indigo-900/30 p-2.5 rounded-full">
-              <Pencil className="h-5 w-5 text-indigo-600 dark:text-indigo-400" />
+            <div className="rounded-full bg-[var(--accent-100)] p-2.5 dark:bg-[var(--accent-900)]">
+              <Pencil className="h-5 w-5 text-[var(--accent-700)] dark:text-[var(--accent-200)]" />
             </div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-semibold text-[var(--app-ink)] sm:text-xl">
               编辑标签
             </h2>
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+            className="btn-icon"
           >
             <Cross1Icon className="h-5 w-5 text-gray-500" />
           </button>
@@ -70,25 +70,25 @@ function TagEditModalContent({
         {/* 表单 */}
         <form onSubmit={handleSubmit}>
           <div className="mb-6">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="form-label mb-2">
               标签名称
             </label>
             <input
               type="text"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              className="w-full px-4 py-3 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-400 transition-all"
+              className="input-primary px-4 py-3"
               autoFocus
               disabled={isProcessing}
             />
           </div>
 
           {/* 按钮 */}
-          <div className="flex justify-end space-x-3">
+          <div className="flex gap-2 sm:justify-end sm:space-x-3">
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+              className="btn-secondary flex-1 px-4 py-2.5 sm:flex-none"
               disabled={isProcessing}
             >
               取消
@@ -96,7 +96,7 @@ function TagEditModalContent({
             <motion.button
               type="submit"
               disabled={!newName.trim() || newName.trim() === tag.name || isProcessing}
-              className="flex items-center space-x-2 px-4 py-2.5 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md"
+              className="btn-primary flex-1 px-4 py-2.5 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
               whileHover={{ scale: 1.02 }}
               whileTap={{ scale: 0.98 }}
             >

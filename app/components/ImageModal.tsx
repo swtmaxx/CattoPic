@@ -56,7 +56,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.2 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4"
           onClick={handleClose}
         >
           <motion.div
@@ -64,58 +64,52 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 10 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative bg-white dark:bg-gray-900 rounded-2xl overflow-hidden w-full max-w-xl max-h-[85vh] shadow-[0_25px_50px_-12px_rgba(0,0,0,0.25)] dark:shadow-2xl border border-gray-200/80 dark:border-gray-700/50 ring-1 ring-black/[0.05] dark:ring-white/[0.05]"
+            className="modal-dialog relative max-h-[85vh] w-full max-w-xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* 头部 - 渐变背景 */}
-            <div className="relative overflow-hidden">
-              {/* 背景装饰 */}
-              <div className="absolute inset-0 bg-green-600 opacity-90" />
-              <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4xIj48Y2lyY2xlIGN4PSIzMCIgY3k9IjMwIiByPSIyIi8+PC9nPjwvZz48L3N2Zz4=')] opacity-30" />
-
-              <div className="relative px-6 py-5">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1 min-w-0 pr-4">
-                    <h3 className="text-lg font-bold text-white truncate leading-tight">
-                      {image.originalName}
-                    </h3>
-                    <p className="text-sm text-white/70 mt-1">图片详情</p>
-                  </div>
-                  <button
-                    className="flex-shrink-0 p-2 text-white/80 hover:text-white hover:bg-white/10 rounded-lg transition-all duration-200"
-                    onClick={handleClose}
-                  >
-                    <Cross1Icon className="h-5 w-5" />
-                  </button>
+            <div className="border-b border-[var(--app-border)] bg-[var(--app-surface)] px-4 py-4 sm:px-6 sm:py-5">
+              <div className="flex items-start justify-between">
+                <div className="min-w-0 pr-4">
+                  <h3 className="truncate text-lg font-semibold leading-tight text-[var(--app-ink)]">
+                    {image.originalName}
+                  </h3>
+                  <p className="mt-1 text-sm text-[var(--app-muted)]">图片详情</p>
                 </div>
+                <button
+                  className="btn-icon h-10 w-10 min-h-10 min-w-10 shrink-0"
+                  onClick={handleClose}
+                  aria-label="关闭图片详情"
+                >
+                  <Cross1Icon className="h-5 w-5" />
+                </button>
               </div>
             </div>
 
             {/* 内容区域 */}
-            <div className="overflow-y-auto max-h-[calc(85vh-10rem)]">
+            <div className="modal-scroll max-h-[calc(85vh-10rem)] overflow-y-auto">
               {/* 图片元信息 - 紧凑区域 */}
-              <div className="px-6 py-4 border-b border-gray-100 dark:border-gray-800 bg-gray-50/50 dark:bg-gray-800/30">
+              <div className="border-b border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 sm:px-6">
                 <ImageInfo image={image} />
               </div>
 
               {/* 链接区域 - 主要内容 */}
-              <div className="px-6 py-5">
+              <div className="px-4 py-5 sm:px-6">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-1 h-5 rounded-full bg-violet-500" />
-                  <h4 className="text-sm font-semibold text-gray-900 dark:text-white">快速复制</h4>
+                  <div className="h-5 w-1 rounded-full bg-[var(--accent-500)]" />
+                  <h4 className="text-sm font-semibold text-[var(--app-ink)]">快速复制</h4>
                 </div>
                 <ImageUrls image={image} />
               </div>
             </div>
 
             {/* 底部操作区域 */}
-            <div className="flex justify-between items-center px-6 py-4 border-t border-gray-100 dark:border-gray-800 bg-gray-50/80 dark:bg-gray-800/50">
+            <div className="modal-footer flex flex-wrap items-center justify-between gap-3 border-t border-[var(--app-border)] bg-[var(--app-surface-muted)] px-4 py-4 sm:px-6">
               {canDelete && !showDeleteConfirm && (
                 <div className="flex items-center gap-2 flex-wrap">
                   {onRename && (
                     <button
                       onClick={() => onRename(image)}
-                      className="px-4 py-2 text-sm font-medium text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all duration-200"
+                      className="btn-secondary min-h-11 border-transparent bg-transparent px-4 py-2 text-sm text-[var(--accent-700)] hover:bg-[var(--accent-50)]"
                     >
                       重命名
                     </button>
@@ -123,7 +117,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
 
                   <button
                     onClick={() => setShowDeleteConfirm(true)}
-                    className="group flex items-center gap-2 px-4 py-2 text-sm font-medium text-red-600 dark:text-red-400 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-all duration-200"
+                    className="btn-secondary group min-h-11 border-transparent bg-transparent px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/30"
                   >
                     <TrashIcon className="h-4 w-4 group-hover:scale-110 transition-transform" />
                     删除图片
@@ -145,7 +139,7 @@ export default function ImageModal({ image, isOpen, onClose, onDelete, onRename 
 
               <button
                 onClick={handleClose}
-                className="px-5 py-2 text-sm font-medium text-gray-600 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors"
+                className="btn-secondary min-h-11 px-5 py-2 text-sm"
               >
                 关闭
               </button>

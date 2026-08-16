@@ -119,7 +119,7 @@ export default function RandomApiModal({ isOpen, onClose }: RandomApiModalProps)
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4"
           onClick={(e) => {
             if (e.target === e.currentTarget) onClose();
           }}
@@ -129,26 +129,26 @@ export default function RandomApiModal({ isOpen, onClose }: RandomApiModalProps)
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="bg-white dark:bg-slate-800 rounded-xl max-w-2xl w-full mx-4 shadow-2xl overflow-hidden"
+            className="modal-dialog w-full max-w-2xl overflow-hidden bg-[var(--app-surface)]"
           >
             {/* 标题栏 */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--app-border)] p-4 sm:p-6">
               <div className="flex items-center">
-                <div className="bg-indigo-500 p-3 rounded-full mr-4">
-                  <Link2Icon className="h-6 w-6 text-white" />
+                <div className="mr-2 shrink-0 rounded-full bg-[var(--accent-600)] p-2.5 sm:mr-4 sm:p-3">
+                  <Link2Icon className="h-5 w-5 text-white sm:h-6 sm:w-6" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">随机图 API 生成器</h2>
+                <h2 className="text-lg font-semibold text-[var(--app-ink)] sm:text-xl">随机图 API 生成器</h2>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={resetAll}
-                  className="px-3 py-1.5 text-sm rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="btn-secondary border-transparent bg-transparent px-3 py-1.5 text-sm"
                 >
                   重置
                 </button>
                 <button
                   onClick={onClose}
-                  className="p-2 rounded-lg text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+                  className="btn-icon"
                 >
                   <Cross1Icon className="h-5 w-5" />
                 </button>
@@ -156,10 +156,10 @@ export default function RandomApiModal({ isOpen, onClose }: RandomApiModalProps)
             </div>
 
             {/* 内容区域 */}
-            <div className="p-6 max-h-[70vh] overflow-y-auto space-y-6">
+            <div className="modal-scroll max-h-[70vh] space-y-6 overflow-y-auto p-4 sm:p-6">
               {isLoading ? (
                 <div className="flex items-center justify-center py-8">
-                  <div className="animate-spin rounded-full h-8 w-8 border-2 border-indigo-500 border-t-transparent"></div>
+                  <div className="h-8 w-8 animate-spin rounded-full border-2 border-[var(--accent-500)] border-t-transparent"></div>
                 </div>
               ) : (
                 <>

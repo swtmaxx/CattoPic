@@ -6,7 +6,25 @@ interface ConfigResponse {
 // 从环境变量获取后端地址，默认为相对路径
 export const BASE_URL = process.env.NEXT_PUBLIC_API_URL || "";
 
-let currentBaseUrl = BASE_URL;
+function isLocalHost(hostname: string): boolean {
+  return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]" || hostname === "::1";
+}
+
+function normalizeLocalApiUrl(value: string): string {
+  if (typeof window === "undefined" || !value) return value;
+
+  try {
+    const apiUrl = new URL(value, window.location.origin);
+    if (isLocalHost(apiUrl.hostname) && isLocalHost(window.location.hostname)) {
+      apiUrl.hostname = window.location.hostname;
+    }
+    return apiUrl.toString().replace(/\/$/, "");
+  } catch {
+    return value;
+  }
+}
+
+let currentBaseUrl = normalizeLocalApiUrl(BASE_URL);
 let initPromise: Promise<void> | null = null;
 
 async function initializeApiBaseUrl(): Promise<void> {
@@ -18,7 +36,7 @@ async function initializeApiBaseUrl(): Promise<void> {
 
     const config = await response.json() as ConfigResponse;
     if (config.apiUrl) {
-      currentBaseUrl = config.apiUrl;
+      currentBaseUrl = normalizeLocalApiUrl(config.apiUrl);
     }
   } catch (error) {
     console.error("Failed to fetch API config:", error);

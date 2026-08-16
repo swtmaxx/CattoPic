@@ -142,20 +142,20 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
 
   return (
     <div
-      className={`drop-zone mb-6 flex flex-col items-center justify-center cursor-pointer transition-all duration-200 ${
-        isPasteActive ? 'ring-2 ring-green-500 ring-offset-2 dark:ring-offset-slate-900' : ''
+      className={`drop-zone upload-dropzone mb-6 flex cursor-pointer flex-col items-center justify-center ${
+        isPasteActive ? 'drop-zone--paste' : ''
       }`}
       onClick={() => fileInputRef.current?.click()}
       onDrop={handleDrop}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
     >
-      <div className="mb-4 bg-green-100 dark:bg-green-900/50 p-4 rounded-full">
-        <UploadIcon className="h-10 w-10 text-green-500" />
+      <div className="upload-dropzone-icon mb-4 flex h-12 w-12 items-center justify-center rounded-lg">
+        <UploadIcon className="h-6 w-6 text-[var(--accent-600)]" />
       </div>
-      <p className="text-lg font-medium mb-2">拖放多张图片到这里</p>
-      <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-2">点击选择图片或 Ctrl+V 粘贴图片</p>
-      <p className="text-sm text-light-text-secondary dark:text-dark-text-secondary mb-4">最多可选择 {maxUploadCount} 张图片</p>
+      <p className="mb-2 text-lg font-semibold text-[var(--app-ink)]">拖放多张图片到这里</p>
+      <p className="mb-2 text-sm text-[var(--app-muted)]">点击选择图片，或直接粘贴图片</p>
+      <p className="mb-5 text-xs text-[var(--app-faint)]">单次最多 {maxUploadCount} 张</p>
       <input
         type="file"
         ref={fileInputRef}
@@ -172,14 +172,14 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
         onChange={handleFolderSelect}
         {...({ webkitdirectory: '', directory: '' } as React.InputHTMLAttributes<HTMLInputElement>)}
       />
-      <div className="flex items-center gap-3">
+      <div className="flex w-full flex-col items-stretch gap-2 sm:w-auto sm:flex-row sm:items-center sm:gap-3">
         <button
           type="button"
           onClick={(e) => {
             e.stopPropagation()
             fileInputRef.current?.click()
           }}
-          className="btn-primary px-4 py-2"
+          className="btn-primary w-full px-4 py-2 sm:w-auto"
         >
           选择图片
         </button>
@@ -190,7 +190,7 @@ export default function UploadDropzone({ onFilesSelected, onFolderSelected, maxU
               e.stopPropagation()
               void handleFolderPicker()
             }}
-            className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-slate-700 transition-colors duration-200 flex items-center gap-1.5"
+            className="btn-secondary w-full px-4 py-2 sm:w-auto"
           >
             <FolderIcon className="h-4 w-4" />
             选择文件夹

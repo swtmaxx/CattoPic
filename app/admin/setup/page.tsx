@@ -58,51 +58,58 @@ export default function AdminSetup() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-gray-200/80 dark:border-gray-700 p-8">
-        <div className="flex items-center justify-center mb-6">
-          <div className="bg-indigo-500 p-3 rounded-2xl">
-            <GearIcon className="h-6 w-6 text-white" />
+    <div className="auth-page flex min-h-screen items-center justify-center px-3 py-6 sm:px-4">
+      <div className="auth-card w-full max-w-md p-5 sm:p-8">
+        <div className="mb-8 flex items-center gap-3">
+          <div className="brand-mark">
+            <GearIcon className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <div className="brand-name">CattoPic</div>
+            <div className="brand-context">First-time setup</div>
           </div>
         </div>
-        <h1 className="text-2xl font-bold text-center text-gray-900 dark:text-white mb-2">初始化管理员</h1>
-        <p className="text-sm text-center text-gray-500 dark:text-gray-400 mb-6">首次使用，请创建管理员账号（仅一次）</p>
+        <div className="mb-6">
+          <div className="eyebrow">Get started</div>
+          <h1 className="auth-title">初始化管理员</h1>
+          <p className="page-subtitle">首次使用，请创建管理员账号（仅一次）</p>
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">用户名</label>
+            <label className="form-label">用户名</label>
             <input
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="input-primary px-3 py-2.5"
               placeholder="3-50 位（字母/数字/._-）"
               autoFocus
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">密码</label>
+            <label className="form-label">密码</label>
             <input
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="input-primary px-3 py-2.5"
               placeholder="至少 8 位"
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">确认密码</label>
+            <label className="form-label">确认密码</label>
             <input
               type="password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className="w-full px-3 py-2.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-700 text-gray-800 dark:text-gray-200 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm"
+              className="input-primary px-3 py-2.5"
               placeholder="再次输入密码"
             />
           </div>
 
           {error && (
-            <div className="p-3 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-lg text-sm">
+            <div className="status-panel error">
               {error}
             </div>
           )}
@@ -110,7 +117,7 @@ export default function AdminSetup() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2.5 bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg font-medium disabled:opacity-70 transition-colors"
+            className="btn-primary w-full py-2.5 disabled:opacity-70"
           >
             {submitting ? "创建中..." : "创建管理员账号"}
           </button>

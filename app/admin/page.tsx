@@ -51,10 +51,10 @@ function formatBytes(bytes: number): string {
 
 function StatCard({ label, value, icon, accent }: { label: string; value: string; icon: React.ReactNode; accent: string }) {
   return (
-    <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5 shadow-sm">
-      <div className={`inline-flex p-3 rounded-xl ${accent} mb-3`}>{icon}</div>
-      <div className="text-2xl font-bold text-gray-900 dark:text-white">{value}</div>
-      <div className="text-sm text-gray-500 dark:text-gray-400 mt-1">{label}</div>
+    <div className="stat-card">
+      <div className={`stat-icon ${accent}`}>{icon}</div>
+      <div className="stat-value">{value}</div>
+      <div className="stat-label">{label}</div>
     </div>
   );
 }
@@ -62,17 +62,17 @@ function StatCard({ label, value, icon, accent }: { label: string; value: string
 function BarList({ data, label, color }: { data: Array<{ name?: string; format?: string; date?: string; count: number }>; label: (item: { name?: string; format?: string; date?: string; count: number }) => string; color: string }) {
   const max = Math.max(1, ...data.map((d) => d.count));
   if (data.length === 0) {
-    return <div className="text-sm text-gray-400 py-4 text-center">暂无数据</div>;
+    return <div className="py-4 text-center text-sm text-[var(--app-faint)]">暂无数据</div>;
   }
   return (
     <div className="space-y-2">
       {data.map((d, i) => (
         <div key={i} className="flex items-center gap-3">
-          <span className="w-20 text-sm text-gray-600 dark:text-gray-300 truncate">{label(d)}</span>
-          <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-5 overflow-hidden">
+          <span className="w-20 truncate text-sm text-[var(--app-muted)]">{label(d)}</span>
+          <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--app-border)]">
             <div className={`h-full ${color} rounded-full`} style={{ width: `${(d.count / max) * 100}%` }} />
           </div>
-          <span className="w-8 text-sm text-gray-500 dark:text-gray-400 text-right">{d.count}</span>
+          <span className="w-8 text-right text-sm text-[var(--app-muted)]">{d.count}</span>
         </div>
       ))}
     </div>
@@ -112,15 +112,18 @@ export default function AdminDashboard() {
   const weekUploads = stats?.dailyTrend.reduce((sum, d) => sum + d.count, 0) || 0;
 
   return (
-    <div className="max-w-7xl mx-auto">
+    <div className="app-page">
       <ToastContainer />
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900 dark:text-white">概览</h1>
-        <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">CattoPic 数据统计</p>
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">Overview</div>
+          <h1 className="page-title">概览</h1>
+          <p className="page-subtitle">CattoPic 数据统计与近期活动。</p>
+        </div>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 text-red-600 dark:text-red-400 rounded-xl text-sm">
+        <div className="status-panel error mb-6">
           {error}
         </div>
       )}
@@ -132,56 +135,56 @@ export default function AdminDashboard() {
       ) : (
         <>
           {/* 统计卡片 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          <div className="mb-6 grid grid-cols-2 gap-3 sm:mb-8 sm:gap-4 md:grid-cols-4">
             <StatCard
               label="图片总数"
               value={String(stats.totalImages)}
-              icon={<ImageIcon className="h-5 w-5 text-indigo-500" />}
-              accent="bg-indigo-50 dark:bg-indigo-900/30"
+              icon={<ImageIcon className="h-5 w-5 text-[var(--accent-600)]" />}
+              accent="is-primary"
             />
             <StatCard
               label="总存储占用"
               value={formatBytes(stats.totalStorageBytes)}
-              icon={<SizeIcon className="h-5 w-5 text-emerald-500" />}
-              accent="bg-emerald-50 dark:bg-emerald-900/30"
+              icon={<SizeIcon className="h-5 w-5 text-blue-600" />}
+              accent="is-blue"
             />
             <StatCard
               label="标签数量"
               value={String(stats.topTags.length)}
-              icon={<TagIcon className="h-5 w-5 text-purple-500" />}
-              accent="bg-purple-50 dark:bg-purple-900/30"
+              icon={<TagIcon className="h-5 w-5 text-amber-600" />}
+              accent="is-amber"
             />
             <StatCard
               label="近 7 天上传"
               value={String(weekUploads)}
-              icon={<Link1Icon className="h-5 w-5 text-amber-500" />}
-              accent="bg-amber-50 dark:bg-amber-900/30"
+              icon={<Link1Icon className="h-5 w-5 text-rose-600" />}
+              accent="is-rose"
             />
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
             {/* 近 7 天趋势 */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">近 7 天上传趋势</h2>
+            <div className="card p-5">
+              <h2 className="section-title mb-4">近 7 天上传趋势</h2>
               <BarList
                 data={stats.dailyTrend}
                 label={(d) => (d.date || "").slice(5)}
-                color="bg-indigo-500"
+                color="bg-[var(--accent-600)]"
               />
             </div>
 
             {/* 最近上传 */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">最近上传</h2>
+            <div className="card p-5">
+              <h2 className="section-title mb-4">最近上传</h2>
               {stats.recentUploads.length === 0 ? (
                 <div className="text-sm text-gray-400 text-center py-4">暂无图片</div>
               ) : (
-                <div className="grid grid-cols-3 sm:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
                   {stats.recentUploads.map((img) => (
                     <button
                       key={img.id}
                       onClick={() => setPreviewImage(toImageFile(img))}
-                      className="rounded-xl overflow-hidden border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 aspect-square group"
+                      className="recent-image aspect-square overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] group"
                       title="点击预览"
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -198,18 +201,18 @@ export default function AdminDashboard() {
             </div>
 
             {/* 格式分布 */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">格式分布</h2>
+            <div className="card p-5">
+              <h2 className="section-title mb-4">格式分布</h2>
               <BarList
                 data={stats.formatDistribution}
                 label={(d) => d.format || "-"}
-                color="bg-emerald-500"
+                color="bg-blue-500"
               />
             </div>
 
             {/* 标签 TOP */}
-            <div className="bg-white dark:bg-slate-800 rounded-2xl border border-gray-200/80 dark:border-gray-700 p-5">
-              <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">标签 TOP 10</h2>
+            <div className="card p-5">
+              <h2 className="section-title mb-4">标签 TOP 10</h2>
               <BarList
                 data={stats.topTags}
                 label={(d) => d.name || "-"}

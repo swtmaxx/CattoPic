@@ -12,7 +12,6 @@ import ImageModal from "../components/ImageModal";
 import VirtualImageMasonry from "../components/VirtualImageMasonry";
 import ImageListView from "../components/ImageListView";
 import { useSession } from "../hooks/useSession";
-import { useTheme } from "../hooks/useTheme";
 import { ImageFile, StatusMessage } from "../types";
 import ToastContainer, { showToast } from "../components/ToastContainer";
 import TagManagementModal from "../components/TagManagementModal";
@@ -22,11 +21,14 @@ import { ImageIcon, Spinner, TrashIcon, TagIcon, CheckIcon, Cross1Icon, Magnifyi
 import { useInfiniteImages, useDeleteImage, useUpdateImage } from "../hooks/useImages";
 import { api } from "../utils/request";
 import { queryKeys } from "../lib/queryKeys";
-import { copyToClipboard } from "../utils/copyImageUtils";
-import { getFullUrl } from "../utils/baseUrl";
+import {
+  copyToClipboard,
+  getImageLink,
+  IMAGE_LINK_FORMATS,
+  type ImageLinkFormat,
+} from "../utils/copyImageUtils";
 
 export default function Manage() {
-  useTheme();
   const router = useRouter();
   const queryClient = useQueryClient();
   const { status, loading } = useSession();
@@ -48,6 +50,7 @@ export default function Manage() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [view, setView] = useState<"grid" | "list">("grid");
   const [gridColumns, setGridColumns] = useState(4);
+  const [gridGapless, setGridGapless] = useState(false);
   const [listThumbSize, setListThumbSize] = useState(56);
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -57,11 +60,11 @@ export default function Manage() {
   const selectionAreaRef = useRef<SelectionArea | null>(null);
   const selectionIdsRef = useRef<Set<string>>(new Set());
   const selectionMovedRef = useRef(false);
-  const [batchCopyFormat, setBatchCopyFormat] = useState<"original" | "webp" | "avif">("webp");
+  const [batchCopyFormat, setBatchCopyFormat] = useState<ImageLinkFormat>("webp");
   const listContainerRef = useRef<HTMLDivElement | null>(null);
-  const selectionAnchorRef = useRef<number | null>(null);
 
   const authenticated = status?.authenticated === true;
+  const isTouchDevice = typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches;
 
   // TanStack Query hooks
   const {
@@ -99,51 +102,24 @@ export default function Manage() {
     }
   }, [status, loading, router]);
 
-  // Windows 文件资源管理器式选择：单击独选，Ctrl/Cmd 切换，Shift 选择范围。
-  const handleImageSelect = useCallback((image: ImageFile, event: MouseEvent) => {
+  // 图片管理恢复为单击打开详情；批量选择由复选框和框选负责。
+  const handleImageSelect = useCallback((image: ImageFile) => {
     if (suppressNextClickRef.current) {
       suppressNextClickRef.current = false;
       return;
     }
-    const index = images.findIndex((item) => item.id === image.id);
-    if (index < 0) return;
-    const additive = event.ctrlKey || event.metaKey;
-    const range = event.shiftKey && selectionAnchorRef.current !== null;
+    setSelectedImage(image);
+    setIsModalOpen(true);
+  }, []);
 
-    setSelectedIds((previous) => {
-      if (range) {
-        const anchor = selectionAnchorRef.current ?? index;
-        const start = Math.min(anchor, index);
-        const end = Math.max(anchor, index);
-        const next = additive ? new Set(previous) : new Set<string>();
-        for (let i = start; i <= end; i += 1) next.add(images[i].id);
-        return next;
-      }
-      if (additive) {
-        const next = new Set(previous);
-        if (next.has(image.id)) next.delete(image.id);
-        else next.add(image.id);
-        return next;
-      }
-      return new Set([image.id]);
-    });
-    selectionAnchorRef.current = index;
-    listContainerRef.current?.focus({ preventScroll: true });
-  }, [images]);
-
-  const toggleSelect = useCallback((id: string, event?: MouseEvent) => {
-    const image = images.find((item) => item.id === id);
-    if (image && event) {
-      handleImageSelect(image, event);
-      return;
-    }
+  const toggleSelect = useCallback((id: string) => {
     setSelectedIds((previous) => {
       const next = new Set(previous);
       if (next.has(id)) next.delete(id);
       else next.add(id);
       return next;
     });
-  }, [images, handleImageSelect]);
+  }, []);
 
   // 框选交互由 viselect 直接在 DOM 层处理，避免 mousemove 期间触发 React 页面级重渲染。
   useEffect(() => {
@@ -152,7 +128,7 @@ export default function Manage() {
 
   useEffect(() => {
     const container = listContainerRef.current;
-    if (!container || isLoading || images.length === 0 || !boxSelectMode) {
+    if (!container || isLoading || images.length === 0 || !boxSelectMode || (typeof window !== "undefined" && window.matchMedia("(pointer: coarse)").matches)) {
       selectionAreaRef.current?.destroy();
       selectionAreaRef.current = null;
       return;
@@ -268,7 +244,6 @@ export default function Manage() {
 
   const selectAllVisible = useCallback(() => {
     setSelectedIds(new Set(images.map((img) => img.id)));
-    selectionAnchorRef.current = images.length > 0 ? 0 : null;
     listContainerRef.current?.focus({ preventScroll: true });
   }, [images]);
 
@@ -285,10 +260,8 @@ export default function Manage() {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "a") {
       event.preventDefault();
       setSelectedIds(new Set(images.map((image) => image.id)));
-      selectionAnchorRef.current = images.length > 0 ? 0 : null;
     } else if (event.key === "Escape") {
       clearSelection();
-      selectionAnchorRef.current = null;
     }
   }, [images, clearSelection]);
 
@@ -302,7 +275,6 @@ export default function Manage() {
     if (!target.closest("[data-image-id]")) {
       listContainerRef.current?.focus({ preventScroll: true });
       clearSelection();
-      selectionAnchorRef.current = null;
     }
   }, [clearSelection]);
 
@@ -310,19 +282,21 @@ export default function Manage() {
     if (selectedIds.size === 0) return;
     const items = images.filter((img) => selectedIds.has(img.id));
     if (items.length === 0) return;
-    const urls = items.map((img) => {
-      const url =
-        batchCopyFormat === "original"
-          ? img.urls?.original
-          : batchCopyFormat === "webp"
-          ? img.urls?.webp
-          : img.urls?.avif;
-      return getFullUrl(url || img.urls?.original || "");
-    });
+    const urls = items
+      .map((img) => getImageLink(img, batchCopyFormat))
+      .filter(Boolean);
+    if (urls.length === 0) {
+      const label = IMAGE_LINK_FORMATS.find((item) => item.value === batchCopyFormat)?.label || batchCopyFormat;
+      showToast(`${label}链接不可用`, "error");
+      return;
+    }
+
     const ok = await copyToClipboard(urls.join("\n"));
-    const label = batchCopyFormat === "original" ? "原图" : batchCopyFormat === "webp" ? "WebP" : "AVIF";
+    const label = IMAGE_LINK_FORMATS.find((item) => item.value === batchCopyFormat)?.label || batchCopyFormat;
     if (ok) {
-      showToast(`已复制 ${items.length} 条${label}链接`, "success");
+      const skippedCount = items.length - urls.length;
+      const skippedText = skippedCount > 0 ? `，跳过 ${skippedCount} 张不可用图片` : "";
+      showToast(`已复制 ${urls.length} 条${label}链接${skippedText}`, "success");
     } else {
       showToast("复制失败", "error");
     }
@@ -411,7 +385,7 @@ export default function Manage() {
   // Keep the shared admin navigation mounted while the page data loads.
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="manage-page max-w-6xl mx-auto px-3 sm:px-6 py-4 sm:py-8">
         <div className="flex justify-center items-center h-64">
           <Spinner className="h-10 w-10 text-indigo-500" />
         </div>
@@ -426,18 +400,32 @@ export default function Manage() {
   const selectedCount = selectedIds.size;
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
+    <div className="manage-page app-page max-w-6xl px-3 py-4 sm:px-6 sm:py-8">
       <ToastContainer />
+
+      <div className="page-heading">
+        <div>
+          <div className="eyebrow">Library</div>
+          <h1 className="page-title">图片管理</h1>
+          <p className="page-subtitle">浏览、筛选并处理已上传的图片资源。</p>
+        </div>
+        <div className="toolbar-count">{totalImages} 张图片</div>
+      </div>
+
+      <ImageFilters
+        onFilterChange={setFilters}
+        search={filters.search}
+      />
 
       {displayStatus && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: -20 }}
-          className={`mb-8 p-4 rounded-xl ${
+          className={`status-panel mb-6 ${
             displayStatus.type === "success"
-              ? "bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-800"
-              : "bg-red-50 dark:bg-red-900/20 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800"
+              ? "success"
+              : "error"
           }`}
         >
           {displayStatus.message}
@@ -445,36 +433,36 @@ export default function Manage() {
       )}
 
       {/* 搜索 + 视图切换 */}
-      <div className="mb-6 flex items-center gap-3">
+      <div className="manage-toolbar mb-4 sm:mb-6 flex flex-col items-stretch gap-3 sm:flex-row sm:items-center">
         <div className="relative flex-1">
           <input
             type="text"
             value={searchInput}
             onChange={(e) => handleSearchChange(e.target.value)}
             placeholder="搜索文件名..."
-            className="w-full px-4 py-3 pl-10 pr-9 rounded-xl bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 text-gray-800 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-sm shadow-sm"
+            className="input-primary px-4 py-3 pl-10 pr-9 placeholder:text-[var(--app-faint)]"
           />
           <MagnifyingGlassIcon className="h-4 w-4 absolute left-3.5 top-1/2 transform -translate-y-1/2 text-gray-400" />
           {searchInput && (
             <button
               onClick={clearSearch}
-              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200"
+              className="btn-icon absolute right-1 top-1/2 h-9 w-9 min-h-9 min-w-9 -translate-y-1/2"
             >
               <Cross2Icon className="h-4 w-4" />
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
           <button
             onClick={() => setShowTagModal(true)}
-            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5"
+            className="btn-secondary px-3 py-2.5 sm:px-4"
           >
             <TagIcon className="h-4 w-4" />
             标签管理
           </button>
           <button
             onClick={() => setShowRandomApiModal(true)}
-            className="px-4 py-3 text-sm bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 rounded-xl shadow-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 flex items-center gap-1.5"
+            className="btn-secondary px-3 py-2.5 sm:px-4"
           >
             <Link2Icon className="h-4 w-4" />
             随机API
@@ -483,34 +471,58 @@ export default function Manage() {
             onClick={() => {
               setBoxSelectMode((enabled) => !enabled);
             }}
-            className={`px-4 py-3 text-sm font-medium transition-colors rounded-xl flex items-center gap-1.5 ${
+            className={`btn-secondary px-3 py-2.5 sm:px-4 ${
               boxSelectMode
-                ? "bg-green-500 text-white shadow-sm"
-                : "bg-white dark:bg-slate-800 border border-gray-200/80 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 shadow-sm"
+                ? "border-[var(--accent-600)] bg-[var(--accent-600)] text-white hover:bg-[var(--accent-700)]"
+                : ""
             }`}
-            title="开启后可拖动框选图片"
+            title={isTouchDevice ? "开启后使用点击和复选框批量选择" : "开启后可拖动框选图片"}
           >
             <CheckIcon className="h-4 w-4" />
-            批量管理
+            <span className="hidden sm:inline">批量管理</span>
+            <span className="sm:hidden">批量选择</span>
           </button>
-          <div className="flex rounded-xl overflow-hidden border border-gray-200/80 dark:border-gray-700 bg-white dark:bg-slate-800 shadow-sm">
+          <div className="view-switcher flex overflow-hidden">
             <button
               onClick={() => setView("grid")}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${view === "grid" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+              className={view === "grid" ? "is-active" : ""}
             >
               网格
             </button>
             <button
               onClick={() => setView("list")}
-              className={`px-4 py-3 text-sm font-medium transition-colors ${view === "list" ? "bg-indigo-500 text-white" : "text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"}`}
+              className={view === "list" ? "is-active" : ""}
             >
               列表
             </button>
           </div>
 
+          {view === "grid" && (
+            <div className="view-switcher flex overflow-hidden" aria-label="网格间距">
+              <button
+                type="button"
+                onClick={() => setGridGapless(false)}
+                className={!gridGapless ? "is-active" : ""}
+                aria-pressed={!gridGapless}
+                title="保留卡片间距"
+              >
+                有间距
+              </button>
+              <button
+                type="button"
+                onClick={() => setGridGapless(true)}
+                className={gridGapless ? "is-active" : ""}
+                aria-pressed={gridGapless}
+                title="移除卡片间距"
+              >
+                无间距
+              </button>
+            </div>
+          )}
+
           {/* 大小调节滑块：网格=列数，列表=缩略图尺寸 */}
-          <div className="flex items-center gap-3 bg-white dark:bg-slate-800 rounded-xl border border-gray-200/80 dark:border-gray-700 px-4 py-2.5 shadow-sm">
-            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+          <div className="toolbar-control flex min-h-11 items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">
+            <span className="whitespace-nowrap text-sm text-[var(--app-muted)]">
               {view === "grid" ? "卡片大小" : "缩略图"}
             </span>
             <input
@@ -524,62 +536,56 @@ export default function Manage() {
                 if (view === "grid") setGridColumns(v);
                 else setListThumbSize(v);
               }}
-              className="w-32 accent-indigo-500"
+              className="w-24 accent-[var(--accent-600)] sm:w-32"
             />
-            <span className="text-sm font-medium text-indigo-600 dark:text-indigo-300 w-14 text-right whitespace-nowrap">
+            <span className="w-14 whitespace-nowrap text-right text-sm font-semibold text-[var(--accent-600)]">
               {view === "grid" ? `${gridColumns} 列` : `${listThumbSize}px`}
             </span>
           </div>
         </div>
       </div>
 
-      <ImageFilters
-        onFilterChange={setFilters}
-        search={filters.search}
-        onSearchChange={(v) => setFilters((prev) => ({ ...prev, search: v }))}
-      />
-
       {/* 批量操作栏 */}
       {selectedCount > 0 && (
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="mb-6 p-4 bg-white dark:bg-slate-800 rounded-2xl border border-indigo-200 dark:border-indigo-800 shadow-sm flex items-center justify-between flex-wrap gap-3"
+          className="batch-toolbar mb-4 flex flex-wrap items-center justify-between gap-3 sm:mb-6"
         >
-          <div className="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
-            <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-500 text-white text-xs font-bold">
+          <div className="flex items-center gap-2 text-sm text-[var(--app-ink)]">
+            <span className="batch-count inline-flex items-center justify-center">
               {selectedCount}
             </span>
             已选择 {selectedCount} 张
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={selectAllVisible} className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg flex items-center gap-1.5">
-              <CheckIcon className="h-4 w-4" /> 全选当前
+          <div className="flex w-full items-center gap-2 overflow-x-auto pb-1 sm:w-auto sm:flex-wrap sm:overflow-visible sm:pb-0">
+            <button onClick={selectAllVisible} className="btn-secondary shrink-0 px-3 py-2">
+              <CheckIcon className="h-4 w-4" /> <span className="hidden sm:inline">全选当前</span><span className="sm:hidden">全选</span>
             </button>
-            <button onClick={clearSelection} className="px-3 py-2 text-sm bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-gray-700 dark:text-gray-300 rounded-lg flex items-center gap-1.5">
-              <Cross1Icon className="h-4 w-4" /> 取消选择
+            <button onClick={clearSelection} className="btn-secondary shrink-0 px-3 py-2">
+              <Cross1Icon className="h-4 w-4" /> <span className="hidden sm:inline">取消选择</span><span className="sm:hidden">取消</span>
             </button>
-            <button onClick={handleBatchTag} className="px-3 py-2 text-sm bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-900/30 dark:hover:bg-indigo-900/50 text-indigo-600 dark:text-indigo-300 rounded-lg flex items-center gap-1.5">
-              <TagIcon className="h-4 w-4" /> 批量打标签
+            <button onClick={handleBatchTag} className="btn-secondary shrink-0 border-[var(--accent-200)] bg-[var(--accent-50)] px-3 py-2 text-[var(--accent-700)] hover:bg-[var(--accent-100)]">
+              <TagIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量打标签</span><span className="sm:hidden">加标签</span>
             </button>
-            <button onClick={() => setShowBatchRemoveTagsModal(true)} className="px-3 py-2 text-sm bg-purple-50 hover:bg-purple-100 dark:bg-purple-900/30 dark:hover:bg-purple-900/50 text-purple-600 dark:text-purple-300 rounded-lg flex items-center gap-1.5">
-              <TagIcon className="h-4 w-4" /> 批量删除标签
+            <button onClick={() => setShowBatchRemoveTagsModal(true)} className="btn-secondary shrink-0 px-3 py-2 text-amber-700 hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/30">
+              <TagIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量删除标签</span><span className="sm:hidden">删标签</span>
             </button>
             <select
               value={batchCopyFormat}
-              onChange={(e) => setBatchCopyFormat(e.target.value as "original" | "webp" | "avif")}
-              className="px-2 py-2 text-sm rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300"
+              onChange={(e) => setBatchCopyFormat(e.target.value as ImageLinkFormat)}
+              className="input-primary min-h-11 w-auto shrink-0 px-2 py-2"
               title="选择复制链接的格式"
             >
               <option value="original">原图</option>
               <option value="webp">WebP</option>
               <option value="avif">AVIF</option>
             </select>
-            <button onClick={() => void handleBatchCopyLinks()} className="px-3 py-2 text-sm bg-green-50 hover:bg-green-100 dark:bg-green-900/30 dark:hover:bg-green-900/50 text-green-600 dark:text-green-300 rounded-lg flex items-center gap-1.5">
-              <CopyIcon className="h-4 w-4" /> 复制选中链接
+            <button onClick={() => void handleBatchCopyLinks()} className="btn-secondary shrink-0 border-[var(--accent-200)] bg-[var(--accent-50)] px-3 py-2 text-[var(--accent-700)] hover:bg-[var(--accent-100)]">
+              <CopyIcon className="h-4 w-4" /> <span className="hidden sm:inline">复制选中链接</span><span className="sm:hidden">复制</span>
             </button>
-            <button onClick={handleBatchDelete} className="px-3 py-2 text-sm bg-red-50 hover:bg-red-100 dark:bg-red-900/30 dark:hover:bg-red-900/50 text-red-600 dark:text-red-400 rounded-lg flex items-center gap-1.5">
-              <TrashIcon className="h-4 w-4" /> 批量删除
+            <button onClick={handleBatchDelete} className="btn-secondary shrink-0 border-red-200 bg-red-50 px-3 py-2 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+              <TrashIcon className="h-4 w-4" /> <span className="hidden sm:inline">批量删除</span><span className="sm:hidden">删除</span>
             </button>
           </div>
         </motion.div>
@@ -603,10 +609,8 @@ export default function Manage() {
               {view === "grid" ? (
                 <VirtualImageMasonry
                   images={images}
-                  layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
+                  layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${gridGapless ? "gapless" : "gapped"}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
                   onImageClick={handleImageSelect}
-                  onImageDoubleClick={handleImageDoubleClick}
-                  onDelete={handleDelete}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}
                   fetchNextPage={fetchNextPage}
@@ -614,6 +618,7 @@ export default function Manage() {
                   selectedIds={selectedIds}
                   onToggleSelect={toggleSelect}
                   lanesOverride={gridColumns}
+                  gapless={gridGapless}
                 />
               ) : (
                 <ImageListView
@@ -632,8 +637,8 @@ export default function Manage() {
               )}
               {isFetchingNextPage && (
                 <div className="flex justify-center items-center py-8">
-                  <Spinner className="h-8 w-8 text-indigo-500" />
-                  <span className="ml-2 text-indigo-500">加载更多图片...</span>
+                  <Spinner className="h-8 w-8 text-[var(--accent-600)]" />
+                  <span className="ml-2 text-[var(--accent-600)]">加载更多图片...</span>
                 </div>
               )}
               {!isLoading && !isFetchingNextPage && images.length > 0 && !hasNextPage && (
@@ -643,12 +648,12 @@ export default function Manage() {
               )}
             </>
           ) : (
-            <div className="flex flex-col items-center justify-center h-64 bg-white dark:bg-slate-800 rounded-2xl shadow-[0_2px_12px_-3px_rgba(0,0,0,0.08),0_4px_24px_-8px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_12px_-3px_rgba(0,0,0,0.3)] p-8 text-gray-500 dark:text-gray-400 border border-gray-200/80 dark:border-gray-700 ring-1 ring-black/[0.03] dark:ring-white/[0.05]">
-              <div className="p-4 rounded-2xl bg-gray-100 dark:bg-gray-800 mb-4">
-                <ImageIcon className="w-12 h-12 text-gray-400 dark:text-gray-500" />
+            <div className="card flex h-64 flex-col items-center justify-center p-8 text-[var(--app-muted)]">
+              <div className="mb-4 rounded-lg bg-[var(--app-surface-muted)] p-4">
+                <ImageIcon className="h-10 w-10 text-[var(--app-faint)]" />
               </div>
-              <p className="text-lg font-semibold text-gray-600 dark:text-gray-300">暂无图片</p>
-              <p className="mt-2 text-sm text-gray-400 dark:text-gray-500">请上传图片或调整筛选条件</p>
+              <p className="text-lg font-semibold text-[var(--app-ink)]">暂无图片</p>
+              <p className="mt-2 text-sm text-[var(--app-faint)]">请上传图片或调整筛选条件</p>
             </div>
           )}
           </div>

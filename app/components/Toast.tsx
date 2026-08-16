@@ -47,18 +47,18 @@ export default function Toast({
     <AnimatePresence>
       {isVisible && (
         <motion.div
-          className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-50"
+          className="toast-message fixed bottom-6 left-1/2 z-50 -translate-x-1/2 transform"
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           exit={{ opacity: 0, y: 20 }}
           transition={{ duration: 0.3 }}
         >
-          <div className="max-w-md p-3 rounded-lg shadow-lg bg-white dark:bg-slate-800 border border-gray-100 dark:border-gray-700 flex items-center">
+          <div className="flex max-w-[calc(100vw-2rem)] items-center rounded-lg border border-gray-100 bg-white p-3 shadow-lg dark:border-gray-700 dark:bg-slate-800">
             <span className="mr-2">{getIcon()}</span>
-            <span className="text-sm text-gray-700 dark:text-gray-200">{message}</span>
+            <span className="break-words text-sm text-gray-700 dark:text-gray-200">{message}</span>
           </div>
         </motion.div>
       )}
     </AnimatePresence>
   );
-} 
+}

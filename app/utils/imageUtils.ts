@@ -64,8 +64,3 @@ export const buildUrl = (path: string, format: string): string => {
 
   return `/images/${relativePath}`;
 };
-
-// 构建Markdown链接格式
-export const buildMarkdownLink = (url: string, filename: string): string => {
-  return `![${filename}](${url})`;
-}; 

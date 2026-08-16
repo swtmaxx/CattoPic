@@ -128,102 +128,114 @@ export default function UploadSection({
 
   return (
     <>
-      <div className="card p-8 mb-6">
-        <h2 className="text-2xl font-bold mb-6 flex items-center">
-          <UploadIcon className="h-6 w-6 mr-2 text-indigo-500" />
-          上传图片
-        </h2>
+      <div className="card upload-workspace mb-6 p-4 sm:p-6">
+        <div className="mb-6 flex flex-col gap-3 border-b border-[var(--app-border)] pb-5 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <div className="eyebrow">Upload workspace</div>
+            <h2 className="mt-1 flex items-center gap-2 text-xl font-bold text-[var(--app-ink)] sm:text-2xl">
+              <UploadIcon className="h-5 w-5 text-[var(--accent-600)]" />
+              上传图片
+            </h2>
+            <p className="mt-1 text-sm text-[var(--app-muted)]">选择图片后会立即加入上传队列，也可以拖入整个文件夹。</p>
+          </div>
+          <div className="upload-limit shrink-0">单次最多 {maxUploadCount} 张</div>
+        </div>
 
         <form onSubmit={handleSubmit}>
-          <UploadDropzone
-            onFilesSelected={(files) => void handleFilesSelected(files)}
-            onFolderSelected={(files) => void handleFolderSelected(files)}
-            maxUploadCount={maxUploadCount}
-          />
+          <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(18rem,20rem)] lg:items-start">
+            <div className="min-w-0">
+              <UploadDropzone
+                onFilesSelected={(files) => void handleFilesSelected(files)}
+                onFolderSelected={(files) => void handleFolderSelected(files)}
+                maxUploadCount={maxUploadCount}
+              />
 
-          <div className="mb-6 flex items-center space-x-4">
-            <div className="flex items-center">
-              <span className="text-sm font-medium text-gray-700 dark:text-gray-300">上传并发：</span>
+              {exceedsLimit && (
+                <div className="status-panel warning mb-4">
+                  <div className="flex items-start gap-3">
+                    <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                      <p className="font-semibold">超出上传限制</p>
+                      <p className="mt-1 text-sm">
+                        一次最多只能上传 <span className="font-semibold">{maxUploadCount}</span> 张图片，已自动保留前 {maxUploadCount} 张。
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {oversizedFiles.length > 0 && (
+                <div className="status-panel error mb-4">
+                  <div className="flex items-start gap-3">
+                    <ExclamationTriangleIcon className="mt-0.5 h-5 w-5 shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-semibold">文件过大已跳过</p>
+                      <p className="mt-1 text-sm">以下文件超过 70MB 限制：</p>
+                      <ul className="mt-2 list-inside list-disc text-sm">
+                        {oversizedFiles.map((name, index) => (
+                          <li key={index} className="break-words">{name}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {selectedFiles.length > 0 && (
+                <div className="selection-summary flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="text-sm text-[var(--app-muted)]">
+                    已选择 <span className="font-semibold text-[var(--accent-600)]">{selectedFiles.length}</span> 张图片
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={isUploading}
+                    className="btn-primary w-full px-4 py-2 sm:w-auto"
+                  >
+                    {isUploading ? (
+                      <>
+                        <Spinner className="h-4 w-4" />
+                        上传中...
+                      </>
+                    ) : (
+                      <>
+                        <UploadIcon className="h-4 w-4" />
+                        开始上传
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
             </div>
-            <div className="flex-1">
-              <select
-                value={concurrency}
-                onChange={(e) => onConcurrencyChange?.(Number(e.target.value))}
-                className="w-full px-3 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-700 dark:text-gray-300 focus:outline-hidden focus:ring-2 focus:ring-indigo-500 dark:focus:ring-indigo-600 text-sm shadow-xs"
-              >
-                {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
-                  <option key={n} value={n}>{n} 个同时上传</option>
-                ))}
-              </select>
-            </div>
+
+            <aside className="upload-options border-t border-[var(--app-border)] pt-5 lg:border-l lg:border-t-0 lg:pl-6 lg:pt-0">
+              <div className="mb-5">
+                <label className="form-label" htmlFor="upload-concurrency">上传并发</label>
+                <select
+                  id="upload-concurrency"
+                  value={concurrency}
+                  onChange={(e) => onConcurrencyChange?.(Number(e.target.value))}
+                  className="input-primary px-3 py-2"
+                >
+                  {[1, 2, 3, 4, 5, 6, 8, 10].map((n) => (
+                    <option key={n} value={n}>{n} 个同时上传</option>
+                  ))}
+                </select>
+                <p className="form-hint">数值越高速度越快，但会占用更多网络资源。</p>
+              </div>
+
+              <TagSelector
+                selectedTags={selectedTags}
+                availableTags={availableTags}
+                onTagsChange={handleTagsChange}
+                onNewTagCreated={fetchTags}
+              />
+
+              <div className="upload-note">
+                <div className="upload-note-title">支持格式</div>
+                <p>JPG、PNG、GIF、WebP、AVIF、SVG 等常见图片格式。</p>
+              </div>
+            </aside>
           </div>
-
-          <TagSelector
-            selectedTags={selectedTags}
-            availableTags={availableTags}
-            onTagsChange={handleTagsChange}
-            onNewTagCreated={fetchTags}
-          />
-
-          {exceedsLimit && (
-            <div className="mb-6 p-4 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 shadow-xs">
-              <div className="flex items-start">
-                <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-full mr-3 shrink-0">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-500" />
-                </div>
-                <div>
-                  <p className="font-medium text-amber-700 dark:text-amber-300 mb-1">超出上传限制</p>
-                  <p className="text-sm text-amber-600 dark:text-amber-400">
-                    一次最多只能上传 <span className="font-medium">{maxUploadCount}</span> 张图片。已自动选择前 {maxUploadCount} 张。
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {oversizedFiles.length > 0 && (
-            <div className="mb-6 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 shadow-xs">
-              <div className="flex items-start">
-                <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-full mr-3 shrink-0">
-                  <ExclamationTriangleIcon className="h-5 w-5 text-red-500" />
-                </div>
-                <div>
-                  <p className="font-medium text-red-700 dark:text-red-300 mb-1">文件过大已跳过</p>
-                  <p className="text-sm text-red-600 dark:text-red-400 mb-2">以下文件超过 70MB 限制，已自动跳过：</p>
-                  <ul className="text-sm text-red-600 dark:text-red-400 list-disc list-inside">
-                    {oversizedFiles.map((name, index) => (
-                      <li key={index}>{name}</li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {selectedFiles.length > 0 && (
-            <div className="flex items-center justify-between mb-6">
-              <div className="text-sm text-light-text-secondary dark:text-dark-text-secondary">
-                已选择 <span className="font-medium text-indigo-600 dark:text-indigo-400">{selectedFiles.length}</span> 张图片
-              </div>
-              <button
-                type="submit"
-                disabled={isUploading}
-                className="px-4 py-2 text-sm bg-indigo-500 hover:bg-indigo-600 text-white rounded-lg transition-colors duration-200 flex items-center font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isUploading ? (
-                  <>
-                    <Spinner className="h-4 w-4 mr-1.5" />
-                    上传中...
-                  </>
-                ) : (
-                  <>
-                    <UploadIcon className="h-4 w-4 mr-1.5" />
-                    开始上传
-                  </>
-                )}
-              </button>
-            </div>
-          )}
         </form>
       </div>
     </>

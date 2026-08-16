@@ -28,27 +28,28 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
   const getTitle = () => {
     if (title) return title
     if (pathname === '/manage') return '图片管理'
-    return 'CattoPic'
+    return '图片上传'
   }
 
   return (
-    <div className="relative z-40 flex items-center justify-between mb-10">
-      <div className="flex items-center">
-        <Link href="/" className="mr-4">
-          <div className="bg-green-500 w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transform rotate-12 hover:rotate-0 transition-transform duration-300">
-            <ImageIcon className="h-8 w-8 text-white" />
-          </div>
+    <header className="app-header relative z-40 mb-6 flex items-center justify-between gap-4 sm:mb-8">
+      <div className="flex min-w-0 items-center gap-3">
+        <Link href="/" className="brand-mark shrink-0" aria-label="返回 CattoPic 上传页">
+          <ImageIcon className="h-5 w-5 text-white" />
         </Link>
-        <h1 className="text-4xl font-bold text-gray-900 dark:text-white pb-1">
-          {getTitle()}
-        </h1>
+        <div className="min-w-0">
+          <div className="brand-name">CattoPic</div>
+          <h1 className="header-title truncate">{getTitle()}</h1>
+        </div>
       </div>
 
-      <div className="flex items-center space-x-2">
+      <div className="flex shrink-0 items-center gap-1 sm:gap-2">
         {!pathname?.startsWith('/manage') && (
           <Link
             href="/manage"
             className="btn-icon"
+            title="图片管理"
+            aria-label="打开图片管理"
             onClick={() => {
               // Warm up Manage page list without clearing existing cache (avoid loading spinner).
               void queryClient.prefetchInfiniteQuery({
@@ -74,7 +75,7 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
         )}
 
         {pathname?.startsWith('/manage') && onTagManageClick && (
-          <button onClick={onTagManageClick} className="btn-icon">
+          <button onClick={onTagManageClick} className="btn-icon" title="标签管理">
             <TagIcon className="h-6 w-6" />
           </button>
         )}
@@ -86,28 +87,28 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
         )}
 
         {pathname?.startsWith('/admin') && (
-          <Link href="/admin" className="btn-icon" title="后台管理">
+          <Link href="/admin" className="btn-icon" title="后台管理" aria-label="打开后台管理">
             <PersonIcon className="h-6 w-6" />
           </Link>
         )}
 
         {onLogoutClick && (
-          <button onClick={onLogoutClick} className="btn-icon relative" title="退出登录">
+          <button onClick={onLogoutClick} className="btn-icon relative" title="退出登录" aria-label="退出登录">
             <PersonIcon className="h-6 w-6" />
             {authenticated && (
               <motion.div
-                className="absolute -top-1 -right-1 w-4 h-4 bg-green-500 rounded-full flex items-center justify-center shadow-lg"
+                className="absolute right-0.5 top-0.5 flex h-2.5 w-2.5 items-center justify-center rounded-full bg-[var(--accent-500)] ring-2 ring-[var(--app-canvas)]"
                 initial={{ scale: 0 }}
                 animate={{ scale: 1 }}
               >
-                <motion.div className="w-2 h-2 bg-white rounded-full" />
+                <motion.div className="h-1 w-1 rounded-full bg-white" />
               </motion.div>
             )}
           </button>
         )}
 
         {showThemeToggle && (
-          <button onClick={toggleTheme} className="btn-icon">
+          <button onClick={toggleTheme} className="btn-icon" title={isDarkMode ? '切换到浅色' : '切换到深色'} aria-label={isDarkMode ? '切换到浅色' : '切换到深色'}>
             {isDarkMode ? (
               <SunIcon className="h-6 w-6 text-amber-500" />
             ) : (
@@ -116,6 +117,6 @@ export default function Header({ onTagManageClick, onRandomApiClick, onLogoutCli
           </button>
         )}
       </div>
-    </div>
+    </header>
   )
 }

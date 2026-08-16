@@ -29,10 +29,10 @@ export default function TagSelector({
       {/* 包含标签 */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-100 dark:bg-emerald-900/30">
             <PlusIcon className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="section-title text-sm">
             包含标签
             {includeTags.length > 0 && (
               <span className="ml-2 text-xs font-normal text-emerald-600 dark:text-emerald-400">
@@ -56,10 +56,10 @@ export default function TagSelector({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={`
-                    px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200
+                    min-h-11 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200
                     ${isIncluded
-                      ? 'bg-emerald-500 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      ? 'border-emerald-500 bg-emerald-500 text-white'
+                      : 'border-[var(--app-border)] bg-[var(--app-surface-muted)] text-[var(--app-muted)] hover:border-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-950/30'
                     }
                     ${state === 'exclude' ? 'opacity-40' : ''}
                   `}
@@ -73,15 +73,15 @@ export default function TagSelector({
       </div>
 
       {/* 分割线 */}
-      <div className="border-t border-gray-200 dark:border-gray-700" />
+      <div className="border-t border-[var(--app-border)]" />
 
       {/* 排除标签 */}
       <div className="space-y-3">
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
+          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
             <MinusIcon className="w-4 h-4 text-red-600 dark:text-red-400" />
           </div>
-          <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          <h3 className="section-title text-sm">
             排除标签
             {excludeTags.length > 0 && (
               <span className="ml-2 text-xs font-normal text-red-600 dark:text-red-400">
@@ -105,10 +105,10 @@ export default function TagSelector({
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
                   className={`
-                    px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200
+                    min-h-11 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200
                     ${isExcluded
-                      ? 'bg-red-500 text-white shadow-md'
-                      : 'bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-600'
+                      ? 'border-red-500 bg-red-500 text-white'
+                      : 'border-[var(--app-border)] bg-[var(--app-surface-muted)] text-[var(--app-muted)] hover:border-red-300 hover:bg-red-50 dark:hover:bg-red-950/30'
                     }
                     ${state === 'include' ? 'opacity-40' : ''}
                   `}

@@ -15,13 +15,13 @@ export function ImagePreview({ image }: ImagePreviewProps) {
   const useDirectImage = format === 'gif' || format === 'svg' || format === 'avif'
 
   return (
-    <div className="w-full md:w-2/5 p-4 md:border-r border-slate-200 dark:border-slate-700 flex items-center">
+    <div className="flex w-full items-center p-3 dark:border-slate-700 sm:p-4 md:w-2/5 md:border-r md:border-slate-200">
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         transition={{ delay: 0.1 }}
         className="relative w-full h-full overflow-hidden rounded-lg border border-slate-200 dark:border-slate-700"
-        style={{ height: '400px' }}
+        style={{ height: 'min(400px, 45vh)' }}
       >
         {useDirectImage ? (
           // eslint-disable-next-line @next/next/no-img-element

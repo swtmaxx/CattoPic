@@ -89,7 +89,7 @@ export const ImagePreview = ({
         <a
           href={imageUrl}
           download={image.originalName}
-          className="absolute bottom-4 right-4 bg-indigo-500 hover:bg-indigo-600 text-white p-2 rounded-full shadow-lg transition-colors duration-300"
+          className="absolute bottom-4 right-4 flex min-h-11 min-w-11 items-center justify-center rounded-full bg-indigo-500 p-2 text-white shadow-lg transition-colors duration-300 hover:bg-indigo-600"
           onClick={(e) => e.stopPropagation()}
           title="下载图片"
         >

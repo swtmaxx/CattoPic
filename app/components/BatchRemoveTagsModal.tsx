@@ -69,7 +69,7 @@ export default function BatchRemoveTagsModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4"
           onClick={(event) => {
             if (event.target === event.currentTarget) close()
           }}
@@ -78,9 +78,9 @@ export default function BatchRemoveTagsModal({
             initial={{ opacity: 0, scale: 0.95, y: 16 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 16 }}
-            className="w-full max-w-lg overflow-hidden rounded-2xl bg-white shadow-2xl dark:bg-slate-800"
+            className="modal-dialog w-full max-w-lg overflow-hidden bg-[var(--app-surface)]"
           >
-            <div className="flex items-center justify-between border-b border-gray-200 p-5 dark:border-gray-700">
+            <div className="flex items-center justify-between gap-3 border-b border-[var(--app-border)] p-4 sm:p-5">
               <div className="flex items-center gap-3">
                 <div className="rounded-xl bg-amber-100 p-2.5 dark:bg-amber-900/30">
                   <TagIcon className="h-5 w-5 text-amber-600 dark:text-amber-300" />
@@ -90,12 +90,12 @@ export default function BatchRemoveTagsModal({
                   <p className="text-xs text-gray-500 dark:text-gray-400">从已选择的 {imageIds.length} 张图片移除标签</p>
                 </div>
               </div>
-              <button onClick={close} className="rounded-lg p-2 text-gray-500 hover:bg-gray-100 dark:hover:bg-slate-700" aria-label="关闭">
+              <button onClick={close} className="btn-icon" aria-label="关闭">
                 <Cross1Icon className="h-5 w-5" />
               </button>
             </div>
 
-            <div className="max-h-[50vh] overflow-y-auto p-5">
+            <div className="modal-scroll max-h-[50vh] overflow-y-auto p-4 sm:p-5">
               {isLoading ? (
                 <p className="py-8 text-center text-sm text-gray-500">正在加载标签...</p>
               ) : tags.length === 0 ? (
@@ -112,7 +112,7 @@ export default function BatchRemoveTagsModal({
                         className={`flex items-center justify-between rounded-xl border px-3 py-2.5 text-left transition-colors ${
                           selected
                             ? 'border-amber-500 bg-amber-50 text-amber-800 dark:bg-amber-900/30 dark:text-amber-200'
-                            : 'border-gray-200 text-gray-700 hover:border-amber-300 dark:border-gray-700 dark:text-gray-300 dark:hover:border-amber-700'
+                            : 'border-[var(--app-border)] text-[var(--app-muted)] hover:border-amber-300 dark:hover:border-amber-700'
                         }`}
                       >
                         <span className="truncate">{tag.name}</span>
@@ -127,17 +127,17 @@ export default function BatchRemoveTagsModal({
               )}
             </div>
 
-            <div className="flex items-center justify-between border-t border-gray-200 p-5 dark:border-gray-700">
-              <span className="text-sm text-gray-500 dark:text-gray-400">已选 {selectedTags.size} 个标签</span>
-              <div className="flex gap-2">
-                <button type="button" onClick={close} className="rounded-lg px-4 py-2 text-sm text-gray-600 hover:bg-gray-100 dark:text-gray-300 dark:hover:bg-slate-700">
+            <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--app-border)] p-4 sm:p-5">
+              <span className="text-sm text-[var(--app-muted)]">已选 {selectedTags.size} 个标签</span>
+              <div className="flex w-full gap-2 sm:w-auto">
+                <button type="button" onClick={close} className="btn-secondary flex-1 px-4 py-2 sm:flex-none">
                   取消
                 </button>
                 <button
                   type="button"
                   onClick={() => void handleSubmit()}
                   disabled={saving || selectedTags.size === 0 || imageIds.length === 0}
-                  className="rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50"
+                  className="min-h-11 flex-1 rounded-lg bg-amber-500 px-4 py-2 text-sm font-medium text-white hover:bg-amber-600 disabled:cursor-not-allowed disabled:opacity-50 sm:flex-none"
                 >
                   {saving ? '处理中...' : '删除标签'}
                 </button>

@@ -29,7 +29,7 @@ export default function TagDeleteConfirm({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-2 sm:p-4"
           onClick={onCancel}
         >
           <motion.div
@@ -37,7 +37,7 @@ export default function TagDeleteConfirm({
             animate={{ scale: 1, y: 0 }}
             exit={{ scale: 0.9, y: 20 }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="bg-white dark:bg-slate-800 rounded-xl p-6 max-w-md w-full shadow-2xl border border-gray-200 dark:border-gray-700"
+            className="modal-dialog w-full max-w-md bg-[var(--app-surface)] p-4 sm:p-6"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 警告图标 */}
@@ -49,7 +49,7 @@ export default function TagDeleteConfirm({
 
             {/* 标题和描述 */}
             <div className="text-center mb-6">
-              <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">
+              <h3 className="mb-2 text-lg font-semibold text-[var(--app-ink)]">
                 确认删除
               </h3>
               <p className="text-gray-600 dark:text-gray-300">
@@ -72,10 +72,10 @@ export default function TagDeleteConfirm({
             </div>
 
             {/* 按钮 */}
-            <div className="flex space-x-3">
+            <div className="flex gap-2">
               <button
                 onClick={onCancel}
-                className="flex-1 px-4 py-2.5 rounded-lg border border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                className="btn-secondary flex-1 px-4 py-2.5"
                 disabled={isProcessing}
               >
                 取消
@@ -83,7 +83,7 @@ export default function TagDeleteConfirm({
               <motion.button
                 onClick={onConfirm}
                 disabled={isProcessing}
-                className="flex-1 flex items-center justify-center space-x-2 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                className="flex min-h-11 flex-1 items-center justify-center space-x-2 rounded-lg bg-red-500 px-4 py-2.5 text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >

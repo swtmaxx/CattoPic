@@ -21,8 +21,8 @@ let configPromise: Promise<SiteTheme> | null = null
 
 function fetchThemeConfig(): Promise<SiteTheme> {
   if (!configPromise) {
-    // The Next.js /api/config route only exposes the Worker base URL. Read the
-    // persisted theme from the authenticated Worker API instead.
+    // The configuration endpoint is public so the saved theme also applies on
+    // the login and first-time setup pages.
     configPromise = api
       .get<{ success: boolean; config?: { theme?: Partial<SiteTheme> } }>('/api/config')
       .then((data) => {
@@ -81,7 +81,7 @@ export function useTheme() {
   const [accent, setAccent] = useState<ThemeAccent>(DEFAULT_THEME.accent)
 
   useEffect(() => {
-    if (loading || !status?.authenticated) return
+    if (loading) return
     let cancelled = false
 
     const apply = (dark: boolean, value: ThemeAccent) => {

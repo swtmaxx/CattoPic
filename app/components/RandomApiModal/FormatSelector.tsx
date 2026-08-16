@@ -18,8 +18,8 @@ const options: { value: Format; label: string; description: string }[] = [
 export default function FormatSelector({ value, onChange }: FormatSelectorProps) {
   return (
     <div className="space-y-3">
-      <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">格式</h3>
-      <div className="flex bg-gray-100 dark:bg-gray-700 rounded-xl p-1 gap-1">
+      <h3 className="section-title text-sm">格式</h3>
+      <div className="flex gap-1 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-muted)] p-1">
         {options.map((option) => {
           const isSelected = value === option.value;
           return (
@@ -27,10 +27,10 @@ export default function FormatSelector({ value, onChange }: FormatSelectorProps)
               key={option.value}
               onClick={() => onChange(option.value)}
               className={`
-                relative flex-1 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors duration-200
+                relative flex min-h-11 flex-1 items-center justify-center px-1 py-2.5 text-sm font-medium transition-colors duration-200 sm:px-3
                 ${isSelected
                   ? 'text-white'
-                  : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-200'
+                  : 'text-[var(--app-muted)] hover:text-[var(--app-ink)]'
                 }
               `}
               whileTap={{ scale: 0.98 }}
@@ -38,13 +38,13 @@ export default function FormatSelector({ value, onChange }: FormatSelectorProps)
               {isSelected && (
                 <motion.div
                   layoutId="format-bg"
-                  className="absolute inset-0 bg-indigo-500 rounded-lg"
+                    className="absolute inset-0 rounded-md bg-[var(--accent-600)]"
                   transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                 />
               )}
               <span className="relative z-10 flex flex-col items-center gap-0.5">
                 <span>{option.label}</span>
-                <span className={`text-xs font-normal ${isSelected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'}`}>
+                <span className={`text-xs font-normal ${isSelected ? 'text-white/80' : 'text-[var(--app-faint)]'}`}>
                   {option.description}
                 </span>
               </span>

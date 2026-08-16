@@ -41,29 +41,29 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
     router.replace('/admin/login')
   }
 
-  const isActive = (href: string) => (href === '/admin' ? pathname === '/admin' : pathname?.startsWith(href))
+  const isActive = (href: string) => {
+    if (href === '/') return pathname === '/'
+    return href === '/admin' ? pathname === '/admin' : pathname?.startsWith(href)
+  }
 
   const navLinkClass = (href: string) =>
-    `flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm whitespace-nowrap transition-colors ${
-      isActive(href)
-        ? 'bg-indigo-500 text-white shadow-sm'
-        : 'text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-slate-800'
-    }`
+    `admin-nav-link ${isActive(href) ? 'is-active' : ''}`
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
-      {/* 顶栏：页面切换 + 操作 */}
-      <header className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-gray-800">
-        <div className="flex items-center justify-between px-4 sm:px-6 py-3 gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/" className="bg-indigo-500 w-9 h-9 rounded-xl flex items-center justify-center shrink-0">
+    <div className="admin-shell min-h-screen">
+      <header className="admin-header sticky top-0 z-20">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-4 py-3 sm:px-6">
+          <div className="flex min-w-0 items-center gap-3">
+            <Link href="/" className="brand-mark shrink-0" aria-label="返回 CattoPic 上传页">
               <ImageIcon className="h-4 w-4 text-white" />
             </Link>
-            <span className="font-bold text-gray-900 dark:text-white hidden sm:block">CattoPic</span>
+            <div className="min-w-0">
+              <div className="brand-name">CattoPic</div>
+              <div className="brand-context truncate">控制台</div>
+            </div>
           </div>
 
-          {/* 页面切换（桌面） */}
-          <nav className="hidden md:flex items-center gap-1">
+          <nav className="hidden items-center gap-1 md:flex" aria-label="后台导航">
             {NAV_ITEMS.map((item) => (
               <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
                 <item.icon className="h-4 w-4" />
@@ -76,21 +76,20 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
             </Link>
           </nav>
 
-          <div className="flex items-center gap-2 shrink-0">
-            <Link href="/" className="btn-icon md:hidden" title="上传页">
+          <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+            <Link href="/" className="btn-icon md:hidden" title="上传页" aria-label="打开上传页">
               <UploadIcon className="h-5 w-5" />
             </Link>
-            <button onClick={toggleTheme} className="btn-icon" title={isDarkMode ? "切换到浅色" : "切换到深色"}>
+            <button onClick={toggleTheme} className="btn-icon" title={isDarkMode ? "切换到浅色" : "切换到深色"} aria-label={isDarkMode ? "切换到浅色" : "切换到深色"}>
               {isDarkMode ? <SunIcon className="h-5 w-5 text-amber-500" /> : <MoonIcon className="h-5 w-5 text-gray-700 dark:text-gray-300" />}
             </button>
-            <button onClick={() => void handleLogout()} className="btn-icon" title="退出登录">
+            <button onClick={() => void handleLogout()} className="btn-icon" title="退出登录" aria-label="退出登录">
               <PersonIcon className="h-5 w-5" />
             </button>
           </div>
         </div>
 
-        {/* 页面切换（移动端） */}
-        <nav className="md:hidden flex gap-1 px-3 pb-3 overflow-x-auto">
+        <nav className="mobile-nav-scroll flex gap-1 overflow-x-auto border-t border-[var(--app-border)] px-4 py-2 md:hidden" aria-label="后台导航">
           {NAV_ITEMS.map((item) => (
             <Link key={item.href} href={item.href} className={navLinkClass(item.href)}>
               <item.icon className="h-4 w-4" />
@@ -104,7 +103,7 @@ export default function AdminShell({ children }: { children: React.ReactNode }) 
         </nav>
       </header>
 
-      <main className="px-4 sm:px-6 py-6">{children}</main>
+      <main className="mx-auto w-full max-w-7xl px-4 py-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-6 sm:py-8">{children}</main>
     </div>
   )
 }
