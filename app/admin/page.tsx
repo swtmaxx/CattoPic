@@ -6,6 +6,8 @@ import { useSession } from "../hooks/useSession";
 import { api } from "../utils/request";
 import type { AdminStats, ImageFile } from "../types";
 import { getFullUrl } from "../utils/baseUrl";
+import { useImagePreviewSettings } from "../hooks/useImagePreviewSettings";
+import { getImagePreviewUrl } from "../utils/imagePreview";
 import ImageModal from "../components/ImageModal";
 import {
   Spinner,
@@ -85,6 +87,7 @@ export default function AdminDashboard() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [error, setError] = useState("");
   const [previewImage, setPreviewImage] = useState<ImageFile | null>(null);
+  const { useCdnCgiPreview } = useImagePreviewSettings();
 
   useEffect(() => {
     if (loading) return;
@@ -180,22 +183,29 @@ export default function AdminDashboard() {
                 <div className="text-sm text-gray-400 text-center py-4">暂无图片</div>
               ) : (
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-                  {stats.recentUploads.map((img) => (
-                    <button
-                      key={img.id}
-                      onClick={() => setPreviewImage(toImageFile(img))}
-                      className="recent-image aspect-square overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] group"
-                      title="点击预览"
-                    >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={img.urls?.original || getFullUrl(img.paths.original)}
-                        alt={img.originalName}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
+                  {stats.recentUploads.map((img) => {
+                    const image = toImageFile(img);
+                    return (
+                      <button
+                        key={img.id}
+                        onClick={() => setPreviewImage(image)}
+                        className="recent-image aspect-square overflow-hidden rounded-md border border-[var(--app-border)] bg-[var(--app-surface-muted)] group"
+                        title="点击预览"
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={getImagePreviewUrl(image, {
+                            useCdnCgi: useCdnCgiPreview,
+                            width: 256,
+                            quality: 75,
+                          })}
+                          alt={img.originalName}
+                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                          loading="lazy"
+                        />
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -4,8 +4,8 @@ import Image from "next/image";
 import React, { useState, useCallback, useMemo } from "react";
 import { motion } from 'motion/react';
 import { ImageFile } from "../types";
-import { getFullUrl } from "../utils/baseUrl";
-import { toCdnCgiImageUrl } from "../utils/cdnImage";
+import { useImagePreviewSettings } from "../hooks/useImagePreviewSettings";
+import { getImagePreviewUrl } from "../utils/imagePreview";
 import { LoadingSpinner } from "./LoadingSpinner";
 import {
   CheckIcon,
@@ -43,6 +43,7 @@ const ImageCard = React.memo(function ImageCard({
   onToggleSelect,
 }: ImageCardProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const { useCdnCgiPreview } = useImagePreviewSettings();
 
   // 使用 useMemo 缓存计算结果
   const isGif = useMemo(() => image.format.toLowerCase() === "gif", [image.format]);
@@ -56,14 +57,15 @@ const ImageCard = React.memo(function ImageCard({
   }, [image.width, image.height, image.orientation]);
 
   const imageSrc = useMemo(() => {
-    const base = getFullUrl(image.urls?.webp || image.urls?.original || '');
-    if (!base || isGif || isSvg || isAvif) return base;
-
     // Request a resized thumbnail for smoother scrolling (less decode + bandwidth).
     // Use 2x to keep it crisp on high-DPI displays.
     const requestWidth = Math.max(1, Math.ceil(displayWidth * 2));
-    return toCdnCgiImageUrl(base, { width: requestWidth, quality: 75, format: 'auto', fit: 'scale-down' });
-  }, [displayWidth, image.urls, isGif, isSvg, isAvif]);
+    return getImagePreviewUrl(image, {
+      useCdnCgi: useCdnCgiPreview,
+      width: requestWidth,
+      quality: 75,
+    });
+  }, [displayWidth, image, useCdnCgiPreview]);
 
   const handleImageLoad = useCallback(() => {
     setIsLoading(false);

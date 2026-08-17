@@ -1,7 +1,8 @@
 import Image from "next/image";
 import { ImageFile } from "../types";
 import { ImageData } from "../types/image";
-import { getFullUrl } from "../utils/baseUrl";
+import { useImagePreviewSettings } from "../hooks/useImagePreviewSettings";
+import { getImagePreviewUrl } from "../utils/imagePreview";
 import { useState, useEffect, useCallback } from "react";
 import { imageQueue } from "../utils/imageQueue";
 import { LoadingSpinner } from "./LoadingSpinner";
@@ -24,12 +25,11 @@ export const ImagePreview = ({
 }: ImagePreviewProps) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const { useCdnCgiPreview } = useImagePreviewSettings();
   
   // 判断图片类型并获取适当的URL
   const isImageFile = 'urls' in image && 'sizes' in image;
-  const imageUrl = getFullUrl(
-    image.urls?.webp || image.urls?.original || ''
-  );
+  const imageUrl = getImagePreviewUrl(image, { useCdnCgi: useCdnCgiPreview });
   
   // 获取格式
   const format = isImageFile 

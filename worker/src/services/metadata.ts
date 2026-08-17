@@ -671,14 +671,17 @@ export class MetadataService {
       // 3. Bulk add: one INSERT per tag and image chunk.
       if (addTags.length > 0) {
         const addStatements: D1PreparedStatement[] = [];
-        const imageUnion = `SELECT ? AS image_id ${chunk.slice(1).map(() => 'UNION ALL SELECT ?').join(' ')}`;
+        // D1 limits compound SELECT terms. Use a VALUES CTE instead of
+        // generating one UNION ALL term per image.
+        const imageValues = chunk.map(() => '(?)').join(', ');
         for (const tag of addTags) {
           addStatements.push(
             this.db.prepare(`
+              WITH image_ids(image_id) AS (VALUES ${imageValues})
               INSERT OR IGNORE INTO image_tags (image_id, tag_id)
               SELECT image_id, (SELECT id FROM tags WHERE name = ?)
-              FROM (${imageUnion})
-            `).bind(tag, ...chunk)
+              FROM image_ids
+            `).bind(...chunk, tag)
           );
         }
         await this.db.batch(addStatements);

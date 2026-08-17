@@ -173,6 +173,7 @@ export interface Config {
   supportedFormats: string[];
   imageQuality: number;
   compression: Required<CompressionOptions>;
+  useCdnCgiPreview: boolean;
   theme: ThemeConfig;
 }
 

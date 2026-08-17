@@ -30,6 +30,7 @@ const DEFAULT_CONFIG: Config = {
   supportedFormats: ['jpeg', 'jpg', 'png', 'gif', 'webp', 'avif', 'svg'],
   imageQuality: 80,
   compression: DEFAULT_COMPRESSION,
+  useCdnCgiPreview: true,
   theme: DEFAULT_THEME,
 };
 
@@ -62,6 +63,11 @@ export async function getEffectiveConfig(db: D1Database): Promise<Config> {
   // Merge compression defaults so partial configs stay valid
   const compression = config.compression as Partial<CompressionOptions> | undefined;
   config.compression = { ...DEFAULT_COMPRESSION, ...(compression || {}) };
+
+  // Preserve the existing preview behavior for installations created before this setting.
+  config.useCdnCgiPreview = typeof config.useCdnCgiPreview === 'boolean'
+    ? config.useCdnCgiPreview
+    : DEFAULT_CONFIG.useCdnCgiPreview;
 
   // Merge theme defaults so partial configs stay valid
   const theme = config.theme as Partial<ThemeConfig> | undefined;
@@ -156,6 +162,16 @@ export async function updateConfigHandler(c: Context<{ Bindings: Env }>): Promis
       statements.push(
         c.env.DB.prepare(`INSERT OR REPLACE INTO config (key, value) VALUES ('compression', ?)`)
           .bind(JSON.stringify(compression))
+      );
+    }
+
+    if (body.useCdnCgiPreview !== undefined) {
+      if (typeof body.useCdnCgiPreview !== 'boolean') {
+        return errorResponse('useCdnCgiPreview 配置无效');
+      }
+      statements.push(
+        c.env.DB.prepare(`INSERT OR REPLACE INTO config (key, value) VALUES ('useCdnCgiPreview', ?)`)
+          .bind(JSON.stringify(body.useCdnCgiPreview))
       );
     }
 

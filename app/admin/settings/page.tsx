@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { useSession } from "../../hooks/useSession";
 import { api } from "../../utils/request";
 import { invalidateThemeConfig } from "../../hooks/useTheme";
+import { queryKeys } from "../../lib/queryKeys";
 import type { AdminConfig, CompressionConfig, ThemeConfig, ThemeAccent, ThemeMode } from "../../types";
 import { Spinner, CheckIcon } from "../../components/ui/icons";
 import ToastContainer, { showToast } from "../../components/ToastContainer";
@@ -59,12 +61,15 @@ const MAX_FILE_SIZE_MB = 500;
 
 export default function AdminSettings() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { status, loading, logout } = useSession();
   const [compression, setCompression] = useState<CompressionConfig | null>(null);
   const [maxFileSizeMb, setMaxFileSizeMb] = useState(DEFAULT_MAX_FILE_SIZE_MB);
   const [theme, setTheme] = useState<ThemeConfig>(DEFAULT_THEME);
+  const [useCdnCgiPreview, setUseCdnCgiPreview] = useState(true);
   const [saving, setSaving] = useState(false);
   const [themeSaving, setThemeSaving] = useState(false);
+  const [previewSaving, setPreviewSaving] = useState(false);
 
   // 账号设置
   const [currentPassword, setCurrentPassword] = useState("");
@@ -93,10 +98,24 @@ export default function AdminSettings() {
             Math.round((res.config.maxFileSize || DEFAULT_MAX_FILE_SIZE_MB * 1024 * 1024) / 1024 / 1024),
           )));
           setTheme({ ...DEFAULT_THEME, ...(res.config.theme || {}) });
+          setUseCdnCgiPreview(res.config.useCdnCgiPreview ?? true);
         }
       })
       .catch(() => showToast("加载配置失败", "error"));
   }, [status, loading, router]);
+
+  const handleSavePreview = async () => {
+    setPreviewSaving(true);
+    try {
+      await api.put<{ success: boolean }>("/api/config", { useCdnCgiPreview });
+      queryClient.setQueryData(queryKeys.config.preview(), useCdnCgiPreview);
+      showToast("图片预览设置已保存", "success");
+    } catch {
+      showToast("保存失败", "error");
+    } finally {
+      setPreviewSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!compression) return;
@@ -249,6 +268,43 @@ export default function AdminSettings() {
           >
             <CheckIcon className="h-4 w-4" />
             {themeSaving ? "保存中..." : "保存主题设置"}
+          </button>
+        </div>
+      </div>
+
+      {/* 图片预览设置 */}
+      <div className="card mt-6 p-4 sm:p-6">
+        <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <h2 className="section-title mb-1">图片预览</h2>
+            <p className="section-description">
+              使用 Cloudflare 图片转换生成缩略图。关闭后优先使用已保存的 AVIF、WebP，再回退到原图，可减少转换额度消耗。
+            </p>
+          </div>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={useCdnCgiPreview}
+            aria-label="使用 Cloudflare 图片转换预览"
+            onClick={() => setUseCdnCgiPreview((current) => !current)}
+            className={`settings-toggle ${useCdnCgiPreview ? "is-on" : ""}`}
+          >
+            <span className="settings-toggle-knob" />
+          </button>
+        </div>
+
+        <div className="mt-5 flex flex-col items-stretch gap-3 border-t border-[var(--app-border)] pt-4 sm:flex-row sm:items-center sm:justify-between">
+          <span className="text-sm text-[var(--app-muted)]">
+            当前：{useCdnCgiPreview ? "使用 /cdn-cgi/image 缩略图" : "使用已保存格式直链"}
+          </span>
+          <button
+            type="button"
+            onClick={() => void handleSavePreview()}
+            disabled={previewSaving}
+            className="btn-primary w-full px-6 py-2.5 disabled:opacity-70 sm:w-auto"
+          >
+            <CheckIcon className="h-4 w-4" />
+            {previewSaving ? "保存中..." : "保存图片预览设置"}
           </button>
         </div>
       </div>

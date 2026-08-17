@@ -147,6 +147,7 @@ export interface AdminConfig {
   supportedFormats: string[];
   imageQuality: number;
   compression: CompressionConfig;
+  useCdnCgiPreview: boolean;
   theme: ThemeConfig;
 }
 

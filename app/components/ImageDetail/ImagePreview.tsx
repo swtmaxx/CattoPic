@@ -3,14 +3,16 @@
 import Image from 'next/image'
 import { motion } from 'motion/react'
 import { ImageData } from '../../types/image'
-import { getFullUrl } from '../../utils/baseUrl'
+import { useImagePreviewSettings } from '../../hooks/useImagePreviewSettings'
+import { getImagePreviewUrl } from '../../utils/imagePreview'
 
 interface ImagePreviewProps {
   image: ImageData
 }
 
 export function ImagePreview({ image }: ImagePreviewProps) {
-  const originalUrl = getFullUrl(image.urls?.webp || image.urls?.original || '')
+  const { useCdnCgiPreview } = useImagePreviewSettings()
+  const imageUrl = getImagePreviewUrl(image, { useCdnCgi: useCdnCgiPreview })
   const format = (image.format || '').toLowerCase()
   const useDirectImage = format === 'gif' || format === 'svg' || format === 'avif'
 
@@ -26,13 +28,13 @@ export function ImagePreview({ image }: ImagePreviewProps) {
         {useDirectImage ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={originalUrl}
+            src={imageUrl}
             alt={image.originalName || ''}
             className="w-full h-full object-contain"
           />
         ) : (
           <Image
-            src={originalUrl}
+            src={imageUrl}
             alt={image.originalName || ''}
             fill
             sizes="(max-width: 768px) 100vw, 400px"

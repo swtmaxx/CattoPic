@@ -2,8 +2,8 @@
 
 import type { MouseEvent } from "react";
 import type { ImageFile } from "../types";
-import { getFullUrl } from "../utils/baseUrl";
-import { toCdnCgiImageUrl } from "../utils/cdnImage";
+import { useImagePreviewSettings } from "../hooks/useImagePreviewSettings";
+import { getImagePreviewUrl } from "../utils/imagePreview";
 import { getFormatLabel } from "../utils/imageUtils";
 import { CheckIcon, TrashIcon, EyeOpenIcon } from "./ui/icons";
 
@@ -19,12 +19,12 @@ function formatBytes(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
-function thumbnailSrc(image: ImageFile): string {
-  const base = getFullUrl(image.urls?.webp || image.urls?.original || "");
-  if (!base) return "";
-  const fmt = (image.format || "").toLowerCase();
-  if (fmt === "gif" || fmt === "svg" || fmt === "avif") return base;
-  return toCdnCgiImageUrl(base, { width: 128, quality: 75, format: "auto", fit: "scale-down" });
+function thumbnailSrc(image: ImageFile, useCdnCgiPreview: boolean): string {
+  return getImagePreviewUrl(image, {
+    useCdnCgi: useCdnCgiPreview,
+    width: 128,
+    quality: 75,
+  });
 }
 
 function formatDate(iso: string): string {
@@ -35,134 +35,6 @@ function formatDate(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function MobileImageListCard({
-  image,
-  selected,
-  onToggleSelect,
-  onDelete,
-  onRename,
-  onView,
-  thumbSize,
-}: {
-  image: ImageFile;
-  selected: boolean;
-  onToggleSelect: (id: string) => void;
-  onDelete: (id: string) => void;
-  onRename: (image: ImageFile) => void;
-  onView?: (image: ImageFile) => void;
-  thumbSize: number;
-}) {
-  const previewHeight = Math.min(220, Math.max(112, thumbSize * 2));
-
-  const stopAndRun = (event: MouseEvent, callback: () => void) => {
-    event.stopPropagation();
-    callback();
-  };
-
-  return (
-    <article
-      data-image-id={image.id}
-      tabIndex={onView ? 0 : undefined}
-      role={onView ? "button" : undefined}
-      aria-label={onView ? `预览 ${image.originalName}` : image.originalName}
-      onClick={() => onView?.(image)}
-      onKeyDown={(event) => {
-        if ((event.key === "Enter" || event.key === " ") && onView) {
-          event.preventDefault();
-          onView(image);
-        }
-      }}
-      className={`image-selectable image-list-card overflow-hidden ${
-        selected
-          ? "is-selected"
-          : ""
-      }`}
-    >
-      <div className="relative overflow-hidden bg-[var(--app-surface-muted)]" style={{ height: previewHeight }}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={thumbnailSrc(image)}
-          alt={image.originalName}
-          className="h-full w-full object-cover"
-          loading="lazy"
-          draggable={false}
-        />
-        <div className="absolute inset-x-0 top-0 flex items-center justify-between bg-black/40 p-2">
-          <button
-            type="button"
-            onClick={(event) => stopAndRun(event, () => onToggleSelect(image.id))}
-            className={`selection-checkbox flex h-6 w-6 min-h-6 min-w-6 items-center justify-center rounded-md border-2 transition-colors ${
-              selected ? "border-[var(--accent-500)] bg-[var(--accent-500)]" : "border-white bg-black/20"
-            }`}
-            aria-label={selected ? "取消选择" : "选择图片"}
-          >
-            {selected && <CheckIcon className="h-5 w-5 text-white" />}
-          </button>
-          <span className="rounded-full bg-slate-900/70 px-2 py-1 text-xs font-medium text-white">
-            {getFormatLabel(image.format)}
-          </span>
-        </div>
-      </div>
-
-      <div className="p-3">
-        <div className="flex items-start justify-between gap-2">
-          <div className="min-w-0">
-            <h3 className="break-words text-sm font-semibold text-[var(--app-ink)]">{image.originalName}</h3>
-            <p className="mt-1 truncate text-xs text-[var(--app-faint)]" title={image.id}>{image.id}</p>
-          </div>
-          <span className="format-chip shrink-0 px-2 py-1 text-xs font-medium">
-            {getFormatLabel(image.format)}
-          </span>
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1 text-xs text-[var(--app-muted)]">
-          <span>{formatBytes(image.sizes?.original || 0)}</span>
-          <span>{formatDate(image.uploadTime)}</span>
-        </div>
-
-        <div className="mt-2 flex flex-wrap gap-1">
-          {image.tags.length === 0 ? (
-            <span className="text-xs text-[var(--app-faint)]">暂无标签</span>
-          ) : (
-            image.tags.slice(0, 4).map((tag) => (
-              <span key={tag} className="tag-chip max-w-full truncate px-1.5 py-0.5 text-xs">
-                {tag}
-              </span>
-            ))
-          )}
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2 border-t border-[var(--app-border)] pt-3">
-          <button
-            type="button"
-            onClick={(event) => stopAndRun(event, () => onView?.(image))}
-            className="btn-secondary min-h-11 px-2 text-xs"
-            title="查看图片详情"
-          >
-            <EyeOpenIcon className="h-4 w-4" />
-            <span>预览</span>
-          </button>
-          <button
-            type="button"
-            onClick={(event) => stopAndRun(event, () => onRename(image))}
-            className="btn-secondary min-h-11 border-[var(--accent-200)] bg-[var(--accent-50)] px-2 text-xs text-[var(--accent-700)] hover:bg-[var(--accent-100)]"
-          >
-            重命名
-          </button>
-          <button
-            type="button"
-            onClick={(event) => stopAndRun(event, () => onDelete(image.id))}
-            className="btn-secondary min-h-11 border-red-200 bg-red-50 px-2 text-xs text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300"
-          >
-            <TrashIcon className="h-4 w-4" />
-            <span>删除</span>
-          </button>
-        </div>
-      </div>
-    </article>
-  );
 }
 
 interface ImageListViewProps {
@@ -193,24 +65,11 @@ export default function ImageListView({
   fetchNextPage,
   thumbSize = 56,
 }: ImageListViewProps) {
+  const { useCdnCgiPreview } = useImagePreviewSettings();
+
   return (
     <div className="image-list-shell overflow-hidden">
-      <div className="space-y-3 p-3 sm:hidden">
-        {images.map((image) => (
-          <MobileImageListCard
-            key={image.id}
-            image={image}
-            selected={selectedIds.has(image.id)}
-            onToggleSelect={(id) => onToggleSelect(id)}
-            onDelete={onDelete}
-            onRename={onRename}
-            onView={onView}
-            thumbSize={thumbSize}
-          />
-        ))}
-      </div>
-
-      <div className="hidden overflow-x-auto sm:block">
+      <div className="overflow-x-auto">
         <table className="min-w-[760px] w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--app-border)] text-left text-[var(--app-muted)]">
@@ -251,7 +110,7 @@ export default function ImageListView({
                     <div className="flex items-center gap-3 min-w-[220px]">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={thumbnailSrc(image)}
+                        src={thumbnailSrc(image, useCdnCgiPreview)}
                         alt={image.originalName}
                         className="rounded-lg border border-[var(--app-border)] object-cover"
                         style={{ width: thumbSize, height: thumbSize }}

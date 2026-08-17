@@ -14,6 +14,8 @@ import {
 } from '../../utils/copyImageUtils'
 import { showToast } from '../ToastContainer'
 import ImageModal from '../ImageModal'
+import { useImagePreviewSettings } from '../../hooks/useImagePreviewSettings'
+import { getImagePreviewUrl } from '../../utils/imagePreview'
 
 const formatFileSize = (bytes: number): string => {
   if (!bytes) return '0 B'
@@ -64,6 +66,7 @@ export default function UploadStatusList({
 }: UploadStatusListProps) {
   const [preview, setPreview] = useState<ImageData & { status: 'success' } | null>(null)
   const [copyFormat, setCopyFormat] = useState<ImageLinkFormat>('webp')
+  const { useCdnCgiPreview } = useImagePreviewSettings()
   const uploading = phase === 'uploading' || phase === 'processing'
   const hasFiles = files.length > 0
 
@@ -208,7 +211,11 @@ export default function UploadStatusList({
                   >
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
-                      src={item.result?.urls?.original}
+                      src={getImagePreviewUrl(toPreview(item.result!), {
+                        useCdnCgi: useCdnCgiPreview,
+                        width: 88,
+                        quality: 75,
+                      })}
                       alt={item.file.name}
                       className="h-full w-full object-cover"
                       loading="lazy"

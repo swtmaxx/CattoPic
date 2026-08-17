@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, Noto_Sans_SC } from "next/font/google";
 import "./globals.css";
 import { QueryProvider } from "./providers/QueryProvider";
+import { ImagePreviewSettingsProvider } from "./hooks/useImagePreviewSettings";
 import AdminShell from "./components/admin/AdminShell";
 
 const inter = Inter({
@@ -43,7 +44,9 @@ export default function RootLayout({
       <body className={`${inter.className} ${notoSansSC.className} page-bg`}>
 
         <QueryProvider>
-          <AdminShell>{children}</AdminShell>
+          <ImagePreviewSettingsProvider>
+            <AdminShell>{children}</AdminShell>
+          </ImagePreviewSettingsProvider>
         </QueryProvider>
 
       </body>

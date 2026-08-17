@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useVirtualizer } from '@tanstack/react-virtual';
 import ImageModal from "../components/ImageModal";
 import { getFullUrl } from "../utils/baseUrl";
-import { toCdnCgiImageUrl } from "../utils/cdnImage";
+import { useImagePreviewSettings } from "../hooks/useImagePreviewSettings";
+import { getImagePreviewUrl } from "../utils/imagePreview";
 import { ImageIcon, Cross1Icon, ExclamationTriangleIcon, CopyIcon } from "./ui/icons";
 import { ImageData } from "../types/image";
 import { showToast } from "./ToastContainer";
@@ -28,6 +29,7 @@ const ImageSidebar = React.memo(function ImageSidebar({
   const [selectedImage, setSelectedImage] = useState<ImageData | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [tab, setTab] = useState<"all" | "success" | "error">("all");
+  const { useCdnCgiPreview } = useImagePreviewSettings();
 
   // 使用 useMemo 缓存过滤结果
   const successResults = useMemo(
@@ -152,12 +154,12 @@ const ImageSidebar = React.memo(function ImageSidebar({
       };
 
       const imageSrc = (() => {
-        const base = getFullUrl(result.urls?.webp || result.urls?.original || '');
-        if (!base) return '';
-        const fmt = (result.format || '').toLowerCase();
-        if (fmt === 'svg' || fmt === 'avif') return base;
         const requestWidth = Math.max(1, Math.ceil(thumbWidth * 2));
-        return toCdnCgiImageUrl(base, { width: requestWidth, quality: 70, format: 'auto', fit: 'scale-down' });
+        return getImagePreviewUrl(result, {
+          useCdnCgi: useCdnCgiPreview,
+          width: requestWidth,
+          quality: 70,
+        });
       })();
 
       return (
@@ -220,7 +222,7 @@ const ImageSidebar = React.memo(function ImageSidebar({
         </div>
       );
     });
-  }, []);
+  }, [useCdnCgiPreview]);
 
   return (
     <>

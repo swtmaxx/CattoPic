@@ -28,6 +28,46 @@ import {
   type ImageLinkFormat,
 } from "../utils/copyImageUtils";
 
+const MANAGE_VIEW_SETTINGS_KEY = "cattopic-manage-view-settings";
+
+type ManageViewSettings = {
+  view: "grid" | "list";
+  gridColumns: number;
+  gridGapless: boolean;
+  listThumbSize: number;
+};
+
+const DEFAULT_MANAGE_VIEW_SETTINGS: ManageViewSettings = {
+  view: "grid",
+  gridColumns: 4,
+  gridGapless: false,
+  listThumbSize: 56,
+};
+
+function clampStoredNumber(value: unknown, min: number, max: number, fallback: number): number {
+  if (typeof value !== "number" || !Number.isFinite(value)) return fallback;
+  return Math.min(max, Math.max(min, Math.trunc(value)));
+}
+
+function readManageViewSettings(): ManageViewSettings {
+  if (typeof window === "undefined") return DEFAULT_MANAGE_VIEW_SETTINGS;
+
+  try {
+    const raw = window.localStorage.getItem(MANAGE_VIEW_SETTINGS_KEY);
+    if (!raw) return DEFAULT_MANAGE_VIEW_SETTINGS;
+
+    const stored = JSON.parse(raw) as Partial<ManageViewSettings>;
+    return {
+      view: stored.view === "list" ? "list" : "grid",
+      gridColumns: clampStoredNumber(stored.gridColumns, 1, 12, DEFAULT_MANAGE_VIEW_SETTINGS.gridColumns),
+      gridGapless: stored.gridGapless === true,
+      listThumbSize: clampStoredNumber(stored.listThumbSize, 40, 120, DEFAULT_MANAGE_VIEW_SETTINGS.listThumbSize),
+    };
+  } catch {
+    return DEFAULT_MANAGE_VIEW_SETTINGS;
+  }
+}
+
 export default function Manage() {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -52,6 +92,7 @@ export default function Manage() {
   const [gridColumns, setGridColumns] = useState(4);
   const [gridGapless, setGridGapless] = useState(false);
   const [listThumbSize, setListThumbSize] = useState(56);
+  const viewSettingsLoadedRef = useRef(false);
   const [searchInput, setSearchInput] = useState("");
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [boxSelectMode, setBoxSelectMode] = useState(false);
@@ -64,6 +105,33 @@ export default function Manage() {
   const listContainerRef = useRef<HTMLDivElement | null>(null);
 
   const authenticated = status?.authenticated === true;
+
+  useEffect(() => {
+    const stored = readManageViewSettings();
+    setView(stored.view);
+    setGridColumns(stored.gridColumns);
+    setGridGapless(stored.gridGapless);
+    setListThumbSize(stored.listThumbSize);
+    viewSettingsLoadedRef.current = true;
+  }, []);
+
+  useEffect(() => {
+    if (!viewSettingsLoadedRef.current) return;
+
+    const settings: ManageViewSettings = {
+      view,
+      gridColumns,
+      gridGapless,
+      listThumbSize,
+    };
+
+    try {
+      window.localStorage.setItem(MANAGE_VIEW_SETTINGS_KEY, JSON.stringify(settings));
+    } catch {
+      // Ignore storage errors; the page remains usable without persistence.
+    }
+  }, [view, gridColumns, gridGapless, listThumbSize]);
+
   // TanStack Query hooks
   const {
     images,
@@ -509,21 +577,6 @@ export default function Manage() {
             <CheckIcon className="h-4 w-4" />
             批量管理
           </button>
-          <div className="view-switcher flex overflow-hidden">
-            <button
-              onClick={() => setView("grid")}
-              className={view === "grid" ? "is-active" : ""}
-            >
-              网格
-            </button>
-            <button
-              onClick={() => setView("list")}
-              className={view === "list" ? "is-active" : ""}
-            >
-              列表
-            </button>
-          </div>
-
           {view === "grid" && (
             <div className="view-switcher flex overflow-hidden" aria-label="网格间距">
               <button
@@ -546,6 +599,21 @@ export default function Manage() {
               </button>
             </div>
           )}
+
+          <div className="view-switcher flex overflow-hidden">
+            <button
+              onClick={() => setView("grid")}
+              className={view === "grid" ? "is-active" : ""}
+            >
+              网格
+            </button>
+            <button
+              onClick={() => setView("list")}
+              className={view === "list" ? "is-active" : ""}
+            >
+              列表
+            </button>
+          </div>
 
           {/* 大小调节滑块：网格=列数，列表=缩略图尺寸 */}
           <div className="toolbar-control flex min-h-11 items-center gap-2 px-3 py-2.5 sm:gap-3 sm:px-4">

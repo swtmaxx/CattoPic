@@ -19,5 +19,6 @@ export const queryKeys = {
   // Config
   config: {
     all: ['config'] as const,
+    preview: () => [...queryKeys.config.all, 'preview'] as const,
   },
 } as const;
