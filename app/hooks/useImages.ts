@@ -32,6 +32,7 @@ interface UseImagesOptions {
   tag?: string;
   orientation?: string;
   format?: string;
+  originalFormat?: string;
   search?: string;
   sort?: "upload_time" | "name" | "size";
   order?: "asc" | "desc";
@@ -39,10 +40,17 @@ interface UseImagesOptions {
   enabled?: boolean;
 }
 
-function matchesFilters(image: ImageFile, tag: string, orientation: string, format: string): boolean {
+function matchesFilters(image: ImageFile, tag: string, orientation: string, format: string, originalFormat: string): boolean {
   const tagOk = !tag || image.tags.includes(tag);
   const orientationOk = !orientation || image.orientation === orientation;
   if (!tagOk || !orientationOk) return false;
+
+  const sourceFormat = (image.format || '').toLowerCase();
+  const originalFormatOk = !originalFormat || originalFormat === 'all'
+    || (originalFormat === 'jpeg'
+      ? sourceFormat === 'jpeg' || sourceFormat === 'jpg'
+      : sourceFormat === originalFormat);
+  if (!originalFormatOk) return false;
 
   const urls = image.urls || { original: '', webp: '', avif: '' };
   const formatFilter = (format || 'all').toLowerCase();
@@ -86,11 +94,11 @@ function mergeFirstPageImages(
 
 // Hook for infinite scrolling image list
 export function useInfiniteImages(options: UseImagesOptions = {}) {
-  const { tag = '', orientation = '', format = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
+  const { tag = '', orientation = '', format = 'all', originalFormat = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const recentUploads = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
-  const recentMatches = recentUploads.filter((img) => matchesFilters(img, tag, orientation, format)).slice(0, limit);
+  const recentMatches = recentUploads.filter((img) => matchesFilters(img, tag, orientation, format, originalFormat)).slice(0, limit);
 
   const placeholder = recentMatches.length > 0 ? ({
     pageParams: [1],
@@ -105,7 +113,7 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
   } satisfies InfiniteData<ImageListResponse>) : null;
 
   const query = useInfiniteQuery({
-    queryKey: queryKeys.images.list({ tag, orientation, format, search, sort, order, limit }),
+    queryKey: queryKeys.images.list({ tag, orientation, format, originalFormat, search, sort, order, limit }),
     queryFn: async ({ pageParam = 1 }) => {
       const params: Record<string, string> = {
         page: String(pageParam),
@@ -114,6 +122,7 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
       if (tag) params.tag = tag;
       if (orientation) params.orientation = orientation;
       if (format && format !== 'all') params.format = format;
+      if (originalFormat && originalFormat !== 'all') params.originalFormat = originalFormat;
       if (search) params.search = search;
       if (sort !== 'upload_time') params.sort = sort;
       if (order !== 'desc') params.order = order;
@@ -133,7 +142,7 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
     ...(placeholder ? { placeholderData: placeholder } : {}),
     select: (data) => {
       const latestRecent = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
-      const candidates = latestRecent.filter((img) => matchesFilters(img, tag, orientation, format));
+      const candidates = latestRecent.filter((img) => matchesFilters(img, tag, orientation, format, originalFormat));
       if (candidates.length === 0 || data.pages.length === 0) return data;
 
       const pending = new Set<string>();
@@ -193,12 +202,12 @@ export function useInfiniteImages(options: UseImagesOptions = {}) {
 
 // Hook for paginated image list (non-infinite)
 export function useImages(options: UseImagesOptions & { page?: number } = {}) {
-  const { page = 1, tag = '', orientation = '', format = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
+  const { page = 1, tag = '', orientation = '', format = 'all', originalFormat = 'all', search = '', sort = 'upload_time', order = 'desc', limit = 24, enabled = true } = options;
   const queryClient = useQueryClient();
 
   const recentUploads = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
   const recentMatches = page === 1
-    ? recentUploads.filter((img) => matchesFilters(img, tag, orientation, format)).slice(0, limit)
+    ? recentUploads.filter((img) => matchesFilters(img, tag, orientation, format, originalFormat)).slice(0, limit)
     : [];
   const placeholder = recentMatches.length > 0 ? ({
     images: recentMatches,
@@ -208,7 +217,7 @@ export function useImages(options: UseImagesOptions & { page?: number } = {}) {
   } satisfies ImageListResponse) : null;
 
   const query = useQuery({
-    queryKey: queryKeys.images.list({ page, tag, orientation, format, search, sort, order, limit }),
+    queryKey: queryKeys.images.list({ page, tag, orientation, format, originalFormat, search, sort, order, limit }),
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),
@@ -217,6 +226,7 @@ export function useImages(options: UseImagesOptions & { page?: number } = {}) {
       if (tag) params.tag = tag;
       if (orientation) params.orientation = orientation;
       if (format && format !== 'all') params.format = format;
+      if (originalFormat && originalFormat !== 'all') params.originalFormat = originalFormat;
 
       return api.get<ImageListResponse>('/api/images', params);
     },
@@ -226,7 +236,7 @@ export function useImages(options: UseImagesOptions & { page?: number } = {}) {
     select: (data) => {
       if (page !== 1) return data;
       const latestRecent = queryClient.getQueryData<ImageFile[]>(queryKeys.images.recentUploads()) || [];
-      const candidates = latestRecent.filter((img) => matchesFilters(img, tag, orientation, format));
+      const candidates = latestRecent.filter((img) => matchesFilters(img, tag, orientation, format, originalFormat));
       if (candidates.length === 0) return data;
 
       const existingIds = new Set(data.images.map((i) => i.id));

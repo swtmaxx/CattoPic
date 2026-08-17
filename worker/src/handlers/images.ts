@@ -4,7 +4,7 @@ import { MetadataService } from '../services/metadata';
 import { CacheService, CacheKeys, CACHE_TTL } from '../services/cache';
 import { dispatchImageDeletions, toDeletionTarget } from '../services/deletion';
 import { successResponse, errorResponse, notFoundResponse } from '../utils/response';
-import { parseNumber, validateOrientation, validateImageListFormat, parseTags, sanitizeTagName, isValidUUID } from '../utils/validation';
+import { parseNumber, validateOrientation, validateImageListFormat, validateOriginalImageFormat, parseTags, sanitizeTagName, isValidUUID } from '../utils/validation';
 import { buildImageUrls } from '../utils/imageTransform';
 
 const MAX_IMAGES_PAGE_SIZE = 100;
@@ -25,6 +25,7 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
     const tag = rawTag ? sanitizeTagName(rawTag) || undefined : undefined;
     const orientation = validateOrientation(url.searchParams.get('orientation'));
     const format = validateImageListFormat(url.searchParams.get('format')) || 'all';
+    const originalFormat = validateOriginalImageFormat(url.searchParams.get('originalFormat')) || 'all';
     const search = url.searchParams.get('search')?.trim() || undefined;
     const sortRaw = url.searchParams.get('sort');
     const sort = sortRaw === 'name' || sortRaw === 'size' ? sortRaw : 'upload_time';
@@ -32,7 +33,7 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
     const order = orderRaw === 'asc' ? 'asc' : 'desc';
 
     const cache = new CacheService(c.env.CACHE_KV);
-    const cacheKey = CacheKeys.imagesList(page, limit, tag, orientation, format, search, sort, order);
+    const cacheKey = CacheKeys.imagesList(page, limit, tag, orientation, format, originalFormat, search, sort, order);
 
     // Try to get from cache - cache stores the response data object, not the Response
     interface ImagesListCache {
@@ -48,7 +49,7 @@ export async function imagesHandler(c: Context<{ Bindings: Env }>): Promise<Resp
     }
 
     const metadata = new MetadataService(c.env.DB);
-    const { images, total } = await metadata.getImages({ page, limit, tag, orientation, format, search, sort, order });
+    const { images, total } = await metadata.getImages({ page, limit, tag, orientation, format, originalFormat, search, sort, order });
 
     const baseUrl = c.env.R2_PUBLIC_URL;
 

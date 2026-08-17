@@ -7,6 +7,7 @@ import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, ArrowDownIcon } fr
 
 export interface ImageFilterValues {
   format: string;
+  originalFormat: string;
   orientation: string;
   tag: string;
   search: string;
@@ -27,6 +28,7 @@ const SORT_OPTIONS = [
 
 export default function ImageFilters({ onFilterChange, search = "" }: ImageFiltersProps) {
   const [format, setFormat] = useState("all");
+  const [originalFormat, setOriginalFormat] = useState("all");
   const [orientation, setOrientation] = useState("all");
   const [tag, setTag] = useState("");
   const [sort, setSort] = useState<"upload_time" | "name" | "size">("upload_time");
@@ -34,15 +36,17 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [tagSearchQuery, setTagSearchQuery] = useState("");
 
-  const [activeDropdown, setActiveDropdown] = useState<"format" | "orientation" | "tag" | "sort" | null>(null);
+  const [activeDropdown, setActiveDropdown] = useState<"format" | "originalFormat" | "orientation" | "tag" | "sort" | null>(null);
 
   const formatDropdownRef = useRef<HTMLDivElement>(null);
+  const originalFormatDropdownRef = useRef<HTMLDivElement>(null);
   const orientationDropdownRef = useRef<HTMLDivElement>(null);
   const tagDropdownRef = useRef<HTMLDivElement>(null);
   const sortDropdownRef = useRef<HTMLDivElement>(null);
 
   const dropdownRefs = {
     format: formatDropdownRef,
+    originalFormat: originalFormatDropdownRef,
     orientation: orientationDropdownRef,
     tag: tagDropdownRef,
     sort: sortDropdownRef,
@@ -54,6 +58,16 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
     { value: "avif", label: "AVIF" },
     { value: "original", label: "仅原图" },
     { value: "gif", label: "GIF" },
+  ], []);
+
+  const originalFormatOptions = useMemo(() => [
+    { value: "all", label: "原始格式" },
+    { value: "jpeg", label: "JPEG" },
+    { value: "png", label: "PNG" },
+    { value: "gif", label: "GIF" },
+    { value: "webp", label: "WebP" },
+    { value: "avif", label: "AVIF" },
+    { value: "svg", label: "SVG" },
   ], []);
 
   const orientationOptions = useMemo(() => [
@@ -79,14 +93,14 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
 
   const emit = useCallback((next: Partial<ImageFilterValues>) => {
     onFilterChange({
-      format, orientation, tag, search, sort, order,
+      format, originalFormat, orientation, tag, search, sort, order,
       ...next,
     });
-  }, [format, orientation, tag, search, sort, order, onFilterChange]);
+  }, [format, originalFormat, orientation, tag, search, sort, order, onFilterChange]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (![formatDropdownRef, orientationDropdownRef, tagDropdownRef, sortDropdownRef]
+      if (![formatDropdownRef, originalFormatDropdownRef, orientationDropdownRef, tagDropdownRef, sortDropdownRef]
         .some((ref) => ref.current && ref.current.contains(event.target as Node))) {
         setActiveDropdown(null);
       }
@@ -96,11 +110,15 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleFilterChange = useCallback((type: string, value: string) => {
+  const handleFilterChange = useCallback((type: "format" | "originalFormat" | "orientation" | "tag" | "sort", value: string) => {
     switch (type) {
       case "format":
         setFormat(value);
         emit({ format: value });
+        break;
+      case "originalFormat":
+        setOriginalFormat(value);
+        emit({ originalFormat: value });
         break;
       case "orientation":
         setOrientation(value);
@@ -131,11 +149,13 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
     [availableTags, tagSearchQuery]
   );
 
-  const renderFilterOption = useCallback((type: "format" | "orientation" | "tag" | "sort") => {
+  const renderFilterOption = useCallback((type: "format" | "originalFormat" | "orientation" | "tag" | "sort") => {
     const getOptionLabel = () => {
       switch (type) {
         case "format":
           return formatOptions.find((opt) => opt.value === format)?.label || "选择格式";
+        case "originalFormat":
+          return originalFormatOptions.find((opt) => opt.value === originalFormat)?.label || "原始格式";
         case "orientation":
           return orientationOptions.find((opt) => opt.value === orientation)?.label || "选择方向";
         case "tag":
@@ -149,6 +169,8 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
       switch (type) {
         case "format":
           return formatOptions;
+        case "originalFormat":
+          return originalFormatOptions;
         case "orientation":
           return orientationOptions;
         case "sort":
@@ -213,6 +235,7 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
                     onClick={() => handleFilterChange(type, option.value)}
                     className={`filter-option ${
                       (type === "format" && format === option.value) ||
+                      (type === "originalFormat" && originalFormat === option.value) ||
                       (type === "orientation" && orientation === option.value) ||
                       (type === "tag" && tag === option.value) ||
                       (type === "sort" && sort === option.value)
@@ -235,12 +258,13 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
       </div>
     );
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDropdown, format, orientation, tag, sort, formatOptions, orientationOptions, filteredTags, handleFilterChange]);
+  }, [activeDropdown, format, originalFormat, orientation, tag, sort, formatOptions, originalFormatOptions, orientationOptions, filteredTags, handleFilterChange]);
 
   return (
     <div className="filter-toolbar relative z-50 isolate mb-4">
-      <div className="filter-panel grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+      <div className="filter-panel grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-3 xl:grid-cols-5">
         {renderFilterOption("format")}
+        {renderFilterOption("originalFormat")}
         {renderFilterOption("orientation")}
         {renderFilterOption("tag")}
 

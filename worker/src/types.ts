@@ -184,6 +184,7 @@ export interface ImageFilters {
   tag?: string;
   orientation?: 'landscape' | 'portrait';
   format?: 'all' | 'gif' | 'webp' | 'avif' | 'original';
+  originalFormat?: 'all' | 'jpeg' | 'png' | 'gif' | 'webp' | 'avif' | 'svg';
   search?: string;
   sort?: 'upload_time' | 'name' | 'size';
   order?: 'asc' | 'desc';

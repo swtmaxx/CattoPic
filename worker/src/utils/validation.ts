@@ -76,6 +76,25 @@ export function validateImageListFormat(
   return undefined;
 }
 
+export function validateOriginalImageFormat(
+  value: string | null
+): 'all' | 'jpeg' | 'png' | 'gif' | 'webp' | 'avif' | 'svg' | undefined {
+  if (!value) return undefined;
+  const normalized = value.toLowerCase();
+  if (normalized === 'jpg' || normalized === 'jpeg') return 'jpeg';
+  if (
+    normalized === 'all'
+    || normalized === 'png'
+    || normalized === 'gif'
+    || normalized === 'webp'
+    || normalized === 'avif'
+    || normalized === 'svg'
+  ) {
+    return normalized;
+  }
+  return undefined;
+}
+
 // Detect if request is from mobile device
 export function isMobileDevice(userAgent: string | null | undefined): boolean {
   if (!userAgent) return false;

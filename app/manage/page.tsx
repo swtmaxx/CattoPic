@@ -80,6 +80,7 @@ export default function Manage() {
   const [statusMsg, setStatusMsg] = useState<StatusMessage | null>(null);
   const [filters, setFilters] = useState<ImageFilterValues>({
     format: "all",
+    originalFormat: "all",
     orientation: "all",
     tag: "",
     search: "",
@@ -146,6 +147,7 @@ export default function Manage() {
     tag: filters.tag || undefined,
     orientation: filters.orientation === "all" ? undefined : filters.orientation,
     format: filters.format,
+    originalFormat: filters.originalFormat === "all" ? undefined : filters.originalFormat,
     search: filters.search || undefined,
     sort: filters.sort,
     order: filters.order,
@@ -510,11 +512,6 @@ export default function Manage() {
         <div className="toolbar-count">{totalImages} 张图片</div>
       </div>
 
-      <ImageFilters
-        onFilterChange={setFilters}
-        search={filters.search}
-      />
-
       {displayStatus && (
         <motion.div
           initial={{ opacity: 0, y: -20 }}
@@ -640,6 +637,11 @@ export default function Manage() {
         </div>
       </div>
 
+      <ImageFilters
+        onFilterChange={setFilters}
+        search={filters.search}
+      />
+
       {/* 批量操作栏 */}
       {selectedCount > 0 && (
         <motion.div
@@ -704,7 +706,7 @@ export default function Manage() {
               {view === "grid" ? (
                 <VirtualImageMasonry
                   images={images}
-                  layoutKey={`${filters.format}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${gridGapless ? "gapless" : "gapped"}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
+                  layoutKey={`${filters.format}:${filters.originalFormat}:${filters.orientation}:${filters.tag}:${filters.search}:${filters.sort}:${filters.order}:${gridGapless ? "gapless" : "gapped"}:${statusMsg?.type ?? ""}:${statusMsg?.message ?? ""}`}
                   onImageClick={handleGridImageClick}
                   hasNextPage={hasNextPage}
                   isFetchingNextPage={isFetchingNextPage}

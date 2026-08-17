@@ -318,7 +318,7 @@ export class MetadataService {
   }
 
   async getImages(filters: ImageFilters): Promise<{ images: ImageMetadata[]; total: number }> {
-    const { page = 1, limit = 12, tag, orientation, format, search, sort = 'upload_time', order = 'desc' } = filters;
+    const { page = 1, limit = 12, tag, orientation, format, originalFormat, search, sort = 'upload_time', order = 'desc' } = filters;
     const offset = (page - 1) * limit;
 
     let baseQuery = 'FROM images i';
@@ -353,6 +353,16 @@ export class MetadataService {
         case 'original':
           whereConditions.push('i.path_webp IS NULL AND i.path_avif IS NULL');
           break;
+      }
+    }
+
+    if (originalFormat && originalFormat !== 'all') {
+      if (originalFormat === 'jpeg') {
+        whereConditions.push('i.format IN (?, ?)');
+        params.push('jpeg', 'jpg');
+      } else {
+        whereConditions.push('i.format = ?');
+        params.push(originalFormat);
       }
     }
 

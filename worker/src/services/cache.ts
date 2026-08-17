@@ -9,8 +9,8 @@ export const CACHE_TTL = {
 // Cache key generators
 export const CacheKeys = {
   // Use empty string instead of 'all' to avoid collision with actual 'all' tag/orientation
-  imagesList: (page: number, limit: number, tag?: string, orientation?: string, format?: string, search?: string, sort?: string, order?: string) =>
-    `images:list:${page}:${limit}:${tag ?? ''}:${orientation ?? ''}:${format ?? ''}:${search ?? ''}:${sort ?? ''}:${order ?? ''}`,
+  imagesList: (page: number, limit: number, tag?: string, orientation?: string, format?: string, originalFormat?: string, search?: string, sort?: string, order?: string) =>
+    `images:list:${page}:${limit}:${tag ?? ''}:${orientation ?? ''}:${format ?? ''}:${originalFormat ?? ''}:${search ?? ''}:${sort ?? ''}:${order ?? ''}`,
 
   imageDetail: (id: string) => `images:detail:${id}`,
 

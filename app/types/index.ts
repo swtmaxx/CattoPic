@@ -57,6 +57,7 @@ export interface ImageListResponse {
 
 export interface ImageFilterState {
   format: string;
+  originalFormat: string;
   orientation: string;
   tag: string;
   search: string;
