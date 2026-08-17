@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { api } from "../utils/request";
-import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, MixerHorizontalIcon, ArrowDownIcon } from "./ui/icons";
+import { ChevronDownIcon, ChevronUpIcon, MagnifyingGlassIcon, ArrowDownIcon } from "./ui/icons";
 
 export interface ImageFilterValues {
   format: string;
@@ -33,18 +33,20 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
   const [order, setOrder] = useState<"asc" | "desc">("desc");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [tagSearchQuery, setTagSearchQuery] = useState("");
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   const [activeDropdown, setActiveDropdown] = useState<"format" | "orientation" | "tag" | "sort" | null>(null);
 
-  const dropdownRefs = {
-    format: useRef<HTMLDivElement>(null),
-    orientation: useRef<HTMLDivElement>(null),
-    tag: useRef<HTMLDivElement>(null),
-    sort: useRef<HTMLDivElement>(null),
-  };
+  const formatDropdownRef = useRef<HTMLDivElement>(null);
+  const orientationDropdownRef = useRef<HTMLDivElement>(null);
+  const tagDropdownRef = useRef<HTMLDivElement>(null);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
 
-  const panelRef = useRef<HTMLDivElement>(null);
+  const dropdownRefs = {
+    format: formatDropdownRef,
+    orientation: orientationDropdownRef,
+    tag: tagDropdownRef,
+    sort: sortDropdownRef,
+  };
 
   const formatOptions = useMemo(() => [
     { value: "all", label: "全部" },
@@ -84,16 +86,8 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (
-        panelRef.current &&
-        !panelRef.current.contains(event.target as Node) &&
-        !(event.target as Element).closest(".filter-toggle-button")
-      ) {
-        setIsFilterPanelOpen(false);
-        setActiveDropdown(null);
-      }
-
-      if (!Object.values(dropdownRefs).some((ref) => ref.current && ref.current.contains(event.target as Node))) {
+      if (![formatDropdownRef, orientationDropdownRef, tagDropdownRef, sortDropdownRef]
+        .some((ref) => ref.current && ref.current.contains(event.target as Node))) {
         setActiveDropdown(null);
       }
     };
@@ -245,47 +239,23 @@ export default function ImageFilters({ onFilterChange, search = "" }: ImageFilte
 
   return (
     <div className="filter-toolbar relative z-50 isolate mb-4">
-      <motion.button
-        onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
-        className="filter-toggle-button inline-flex min-h-11 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold"
-        whileHover={{ y: -1 }}
-        whileTap={{ scale: 0.9 }}
-        aria-expanded={isFilterPanelOpen}
-      >
-        <MixerHorizontalIcon className="h-5 w-5" />
-        筛选
-      </motion.button>
+      <div className="filter-panel grid gap-3 p-3 sm:grid-cols-2 sm:p-4 lg:grid-cols-4">
+        {renderFilterOption("format")}
+        {renderFilterOption("orientation")}
+        {renderFilterOption("tag")}
 
-      <AnimatePresence>
-        {isFilterPanelOpen && (
-          <motion.div
-            ref={panelRef}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", damping: 20, stiffness: 300 }}
-            className="filter-panel absolute left-0 top-full z-[100] mt-2 w-full max-w-xl p-4"
+        {/* 排序 */}
+        <div className="flex min-w-0 items-center gap-2">
+          <div className="min-w-0 flex-1">{renderFilterOption("sort")}</div>
+          <button
+            onClick={handleToggleOrder}
+            className="btn-icon min-h-11 min-w-11 rounded-lg border-[var(--app-border)] bg-[var(--app-surface-muted)]"
+            title={order === "desc" ? "降序" : "升序"}
           >
-            <div className="grid gap-3 sm:grid-cols-2">
-              {renderFilterOption("format")}
-              {renderFilterOption("orientation")}
-              {renderFilterOption("tag")}
-
-              {/* 排序 */}
-              <div className="flex min-w-0 items-center gap-2">
-                <div className="flex-1">{renderFilterOption("sort")}</div>
-                <button
-                  onClick={handleToggleOrder}
-                  className="btn-icon min-h-11 min-w-11 rounded-lg border-[var(--app-border)] bg-[var(--app-surface-muted)]"
-                  title={order === "desc" ? "降序" : "升序"}
-                >
-                  {order === "desc" ? <ArrowDownIcon className="h-4 w-4" /> : <ChevronUpIcon className="h-4 w-4" />}
-                </button>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            {order === "desc" ? <ArrowDownIcon className="h-4 w-4" /> : <ChevronUpIcon className="h-4 w-4" />}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
