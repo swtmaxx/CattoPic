@@ -207,9 +207,7 @@ export default function VirtualImageMasonry({
   const lanes = useMemo(() => {
     const automatic = getLaneCount(containerWidth);
     if (!lanesOverride || lanesOverride < 1) return automatic;
-    // 在手机上避免用户设置过多列导致卡片和按钮过小。
-    const maxMobileLanes = containerWidth <= 640 ? 2 : lanesOverride;
-    return Math.min(lanesOverride, maxMobileLanes);
+    return Math.max(1, Math.trunc(lanesOverride));
   }, [containerWidth, lanesOverride]);
   const gutter = gapless ? 0 : GUTTER_PX;
   const columnWidth = useMemo(() => getColumnWidth(containerWidth, lanes, gutter), [containerWidth, lanes, gutter]);

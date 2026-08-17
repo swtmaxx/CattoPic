@@ -121,9 +121,10 @@ The legacy api_keys table, if present, is no longer used.
 The deletion_jobs table is created lazily when deletion handling first needs
 it. No manual migration is required for this release.
 
-For a former Vercel plus Worker deployment, update the production bindings,
-set CORS_ORIGINS to the old frontend domain if needed, then build and deploy
-the single Worker. Verify the Worker URL before removing Vercel.
+For a former separate-frontend plus Worker deployment, update the production
+bindings, set CORS_ORIGINS to the old frontend domain if needed, then build and
+deploy the single Worker. Verify the Worker URL before removing the old
+frontend deployment.
 
 ## 7. Local Development
 

@@ -47,7 +47,7 @@
 - 批量标签更新增加数量上限和 D1 分片执行，避免触发 SQL 变量数/语句长度限制。
 - API Key 鉴权不再把每个受保护读请求都变成 D1 写入；`last_used_at` 仅在校验 API Key 时更新。
 - 修复中文 API 文档仍使用 `/api/upload` 的问题，并统一部署文档中的 Worker compatibility date。
-- 修复 Dependabot lockfile 漂移导致 Vercel frozen install 失败的问题：根目录 `dotenv` 的 manifest specifier 现在与 `pnpm-lock.yaml` 保持一致。
+- 修复 Dependabot lockfile 漂移导致 frozen install 失败的问题：根目录 `dotenv` 的 manifest specifier 现在与 `pnpm-lock.yaml` 保持一致。
 - Worker 处理器在调用元数据/缓存服务前，会先校验缺失或格式错误的图片/标签路由参数。
 - 修复 WebP 和 AVIF 图片的方向检测 - 现在会正确读取图片实际尺寸，而不是默认返回 1920x1080。
 - 修复删除图片后上传页/管理页未及时刷新（TanStack Query 缓存 + recent uploads 列表导致需强刷）。

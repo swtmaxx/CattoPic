@@ -98,7 +98,7 @@ CattoPic 使用单 Worker 部署。Cloudflare Worker 同时提供 Next.js 静态
     binding = 'ASSETS'
     html_handling = 'auto-trailing-slash'
 
-前端和 API 使用同一个 Worker 域名时，当前 origin 会自动放行。不要再复制旧版 wrangler.example.toml，也不需要配置 Vercel。
+前端和 API 使用同一个 Worker 域名时，当前 origin 会自动放行。不要再复制旧版 wrangler.example.toml，也不需要配置独立的前端托管平台。
 
 ### 4. 构建并部署单 Worker
 
@@ -144,12 +144,12 @@ GitHub 仓库只需要配置：
 
 admin_users 表会在首次访问 setup 或 login 时自动创建。旧版 api_keys 表即使存在也不再使用。deletion_jobs 表也会在删除逻辑首次需要时自动创建，本次升级不需要手动迁移。
 
-如果之前使用 Vercel + Worker：
+如果之前使用独立前端 + Worker：
 
 1. 在 worker/wrangler.prod.toml 中填入原有资源绑定。
 2. 如果继续使用旧前端域名，将它填入 CORS_ORIGINS。
 3. 按上面的命令构建并部署单 Worker。
-4. 验证 Worker 地址后，再移除旧的 Vercel 部署。
+4. 验证 Worker 地址后，再移除旧的前端部署。
 
 ## 本地开发
 

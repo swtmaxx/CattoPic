@@ -354,12 +354,12 @@ export default function Manage() {
     const tags = input.split(",").map((t) => t.trim()).filter(Boolean);
     if (tags.length === 0) return;
     try {
-      const res = await api.post<{ success: boolean; updatedCount?: number }>("/api/tags/batch", {
+      const res = await api.post<{ success: boolean; updatedCount?: number; error?: string }>("/api/tags/batch", {
         imageIds: Array.from(selectedIds),
         addTags: tags,
         removeTags: [],
       });
-      if (!res.success) throw new Error("批量打标签失败");
+      if (!res.success) throw new Error(res.error || "批量打标签失败");
       showToast(`已为 ${res.updatedCount ?? selectedIds.size} 张图片添加标签`, "success");
       queryClient.invalidateQueries({ queryKey: queryKeys.tags.list() });
       queryClient.invalidateQueries({ queryKey: queryKeys.images.lists() });
@@ -395,6 +395,12 @@ export default function Manage() {
         onError: () => showToast("重命名失败", "error"),
       }
     );
+  }, [updateImageMutation]);
+
+  const handleUpdateTags = useCallback(async (id: string, tags: string[]) => {
+    const updated = await updateImageMutation.mutateAsync({ id, data: { tags } });
+    setSelectedImage(updated);
+    return updated;
   }, [updateImageMutation]);
 
 
@@ -549,7 +555,7 @@ export default function Manage() {
             <input
               type="range"
               min={view === "grid" ? 1 : 40}
-              max={view === "grid" ? 6 : 120}
+              max={view === "grid" ? 12 : 120}
               step={view === "grid" ? 1 : 8}
               value={view === "grid" ? gridColumns : listThumbSize}
               onChange={(e) => {
@@ -690,6 +696,7 @@ export default function Manage() {
         }}
         onDelete={handleDelete}
         onRename={(image) => handleRename(image as ImageFile)}
+        onUpdateTags={handleUpdateTags}
       />
 
       <TagManagementModal isOpen={showTagModal} onClose={handleTagModalClose} />

@@ -17,10 +17,48 @@ interface ImageUpdateFields {
 }
 
 const D1_BATCH_CHUNK_SIZE = 80;
+const D1_TAG_IMAGE_CHUNK_SIZE = 40;
 
 // D1 Metadata Service
 export class MetadataService {
   constructor(private db: D1Database) {}
+
+  private async ensureTags(tags: string[]): Promise<string[]> {
+    const uniqueTags = Array.from(new Set(tags.filter((tag) => tag.length > 0)));
+
+    for (let i = 0; i < uniqueTags.length; i += D1_BATCH_CHUNK_SIZE) {
+      const chunk = uniqueTags.slice(i, i + D1_BATCH_CHUNK_SIZE);
+      if (chunk.length === 0) continue;
+
+      await this.db.batch(
+        chunk.map((tag) => this.db.prepare(`INSERT OR IGNORE INTO tags (name) VALUES (?)`).bind(tag))
+      );
+    }
+
+    return uniqueTags;
+  }
+
+  private async replaceImageTags(imageId: string, tags: string[]): Promise<string[]> {
+    const uniqueTags = await this.ensureTags(tags);
+
+    await this.db.prepare(`
+      DELETE FROM image_tags WHERE image_id = ?
+    `).bind(imageId).run();
+
+    for (let i = 0; i < uniqueTags.length; i += D1_BATCH_CHUNK_SIZE) {
+      const chunk = uniqueTags.slice(i, i + D1_BATCH_CHUNK_SIZE);
+      if (chunk.length === 0) continue;
+
+      await this.db.batch(
+        chunk.map((tag) => this.db.prepare(`
+          INSERT OR IGNORE INTO image_tags (image_id, tag_id)
+          SELECT ?, id FROM tags WHERE name = ?
+        `).bind(imageId, tag))
+      );
+    }
+
+    return uniqueTags;
+  }
 
   private async ensureDeletionJobsSchema(): Promise<void> {
     await this.db.batch([
@@ -73,20 +111,8 @@ export class MetadataService {
       )
     );
 
-    // 2. Ensure tags exist and create associations
-    for (const tag of metadata.tags) {
-      statements.push(
-        this.db.prepare(`INSERT OR IGNORE INTO tags (name) VALUES (?)`).bind(tag)
-      );
-      statements.push(
-        this.db.prepare(`
-          INSERT INTO image_tags (image_id, tag_id)
-          SELECT ?, id FROM tags WHERE name = ?
-        `).bind(metadata.id, tag)
-      );
-    }
-
     await this.db.batch(statements);
+    await this.replaceImageTags(metadata.id, metadata.tags);
   }
 
   async getImage(id: string): Promise<ImageMetadata | null> {
@@ -128,42 +154,16 @@ export class MetadataService {
     if (!image) return null;
 
     const currentTags = ((tagsResult as D1Result<{ name: string }>).results || []).map(t => t.name);
-    const statements: D1PreparedStatement[] = [];
-    let finalTags = currentTags;
+    const finalTags = updates.tags !== undefined
+      ? Array.from(new Set(updates.tags.filter((tag) => tag.length > 0)))
+      : currentTags;
 
-    // Handle tag changes
+    // Create tags before replacing associations so every tag_id lookup is valid.
     if (updates.tags !== undefined) {
-      const oldTags = new Set(currentTags);
-      const newTags = new Set(updates.tags);
-      finalTags = updates.tags;
-
-      // Remove old tag associations
-      for (const tag of oldTags) {
-        if (!newTags.has(tag)) {
-          statements.push(
-            this.db.prepare(`
-              DELETE FROM image_tags WHERE image_id = ? AND tag_id = (SELECT id FROM tags WHERE name = ?)
-            `).bind(id, tag)
-          );
-        }
-      }
-
-      // Add new tag associations
-      for (const tag of newTags) {
-        if (!oldTags.has(tag)) {
-          statements.push(
-            this.db.prepare(`INSERT OR IGNORE INTO tags (name) VALUES (?)`).bind(tag)
-          );
-          statements.push(
-            this.db.prepare(`
-              INSERT OR IGNORE INTO image_tags (image_id, tag_id)
-              SELECT ?, id FROM tags WHERE name = ?
-            `).bind(id, tag)
-          );
-        }
-      }
+      await this.replaceImageTags(id, finalTags);
     }
 
+    const statements: D1PreparedStatement[] = [];
 
     // Update original name
     if (updates.originalName !== undefined) {
@@ -651,22 +651,11 @@ export class MetadataService {
   async batchUpdateTags(imageIds: string[], addTags: string[], removeTags: string[]): Promise<number> {
     if (imageIds.length === 0) return 0;
 
-    const statements: D1PreparedStatement[] = [];
+    // Ensure all new tags exist before creating image associations.
+    await this.ensureTags(addTags);
 
-    // 1. Ensure all new tags exist (small fixed cost)
-    for (const tag of addTags) {
-      statements.push(
-        this.db.prepare(`INSERT OR IGNORE INTO tags (name) VALUES (?)`).bind(tag)
-      );
-    }
-
-    // Execute tag creation first if needed
-    if (statements.length > 0) {
-      await this.db.batch(statements);
-    }
-
-    for (let i = 0; i < imageIds.length; i += D1_BATCH_CHUNK_SIZE) {
-      const chunk = imageIds.slice(i, i + D1_BATCH_CHUNK_SIZE);
+    for (let i = 0; i < imageIds.length; i += D1_TAG_IMAGE_CHUNK_SIZE) {
+      const chunk = imageIds.slice(i, i + D1_TAG_IMAGE_CHUNK_SIZE);
 
       // 2. Bulk remove within D1 variable limits.
       if (removeTags.length > 0) {

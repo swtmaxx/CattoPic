@@ -25,6 +25,7 @@ interface DeleteResponse {
 interface UpdateResponse {
   success: boolean;
   image: ImageFile;
+  error?: string;
 }
 
 interface UseImagesOptions {
@@ -391,7 +392,7 @@ export function useUpdateImage() {
     }) => {
       const response = await api.put<UpdateResponse>(`/api/images/${id}`, data);
       if (!response.success) {
-        throw new Error('Failed to update image');
+        throw new Error(response.error || '更新图片失败');
       }
       return response.image;
     },

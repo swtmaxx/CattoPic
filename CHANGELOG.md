@@ -47,7 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Bound and chunk batch tag updates to avoid D1 SQL variable/statement limits.
 - Stop turning every protected read request into a D1 write; API key `last_used_at` is now updated only when validating the key.
 - Fix Chinese API docs to use `/api/upload/single`, and align deployment docs with the Worker compatibility date.
-- Fix Dependabot lockfile drift that made Vercel frozen installs fail when the root `dotenv` manifest specifier did not match `pnpm-lock.yaml`.
+- Fix Dependabot lockfile drift that made frozen installs fail when the root `dotenv` manifest specifier did not match `pnpm-lock.yaml`.
 - Validate missing or malformed image/tag route parameters before Worker handlers call metadata/cache services.
 - Fix orientation detection for WebP and AVIF images - now correctly reads actual image dimensions instead of defaulting to 1920x1080.
 - Fix deleted images not disappearing from Upload/Manage pages without a hard refresh (TanStack Query cache + recent uploads list).

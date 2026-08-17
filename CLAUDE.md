@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-CattoPic is an image hosting service with a Next.js frontend (deployed on Vercel) and a Cloudflare Worker backend (Hono framework) using R2 for storage and D1 for metadata.
+CattoPic is an image hosting service deployed as a single Cloudflare Worker. The Worker serves the Next.js static export and Hono API, using R2 for storage, D1 for metadata, and KV for caching and sessions.
 
 **Important: This project uses pnpm as the package manager. Do not use npm or yarn.**
 
