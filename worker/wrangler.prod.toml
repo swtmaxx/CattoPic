@@ -16,7 +16,17 @@ html_handling = 'auto-trailing-slash'
 ENVIRONMENT = 'production'
 R2_PUBLIC_URL = 'https://img.201116.xyz'
 CORS_ORIGINS = 'https://pic.swtmax.top'
-USE_QUEUE = 'false'
+USE_QUEUE = 'true'
+
+[[queues.producers]]
+binding = 'DELETE_QUEUE'
+queue = 'cattopic-delete-queue'
+
+[[queues.consumers]]
+queue = 'cattopic-delete-queue'
+max_batch_size = 10
+max_batch_timeout = 30
+max_retries = 3
 
 [images]
 binding = "IMAGES"

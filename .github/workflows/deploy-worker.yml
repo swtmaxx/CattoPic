@@ -48,6 +48,18 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: worker
 
+      - name: Ensure deletion queue exists
+        working-directory: worker
+        run: |
+          queue_name='cattopic-delete-queue'
+          queue_list="$(pnpm wrangler queues list)"
+          if printf '%s\n' "$queue_list" | grep -Fq "$queue_name"; then
+            echo "Queue $queue_name already exists"
+          else
+            echo "Creating queue $queue_name"
+            pnpm wrangler queues create "$queue_name"
+          fi
+
       # 生产配置直接使用仓库内的 wrangler.prod.toml，不再依赖 WRANGLER_TOML Secret。
       # 若未来需调整资源 ID / 公开域名，直接修改该文件并推送即可。
       - name: Verify production config
