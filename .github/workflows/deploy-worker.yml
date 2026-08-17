@@ -57,7 +57,8 @@ jobs:
             echo "Queue $queue_name already exists"
           else
             echo "Creating queue $queue_name"
-            pnpm wrangler queues create "$queue_name"
+            # 86400 seconds is valid on both free and paid Cloudflare plans.
+            pnpm wrangler queues create "$queue_name" --message-retention-period-secs 86400
           fi
 
       # 生产配置直接使用仓库内的 wrangler.prod.toml，不再依赖 WRANGLER_TOML Secret。
